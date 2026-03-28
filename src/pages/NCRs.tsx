@@ -162,6 +162,26 @@ const NCRsPage = () => {
                             <div className="space-y-4 text-sm">
                               {ncr.description && <div className="rounded-lg border border-border bg-accent/30 p-4"><div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Description</div><p className="text-xs leading-relaxed">{ncr.description}</p></div>}
                               {ncr.root_cause && <div className="rounded-lg border border-border bg-accent/30 p-4"><div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Root Cause</div><p className="text-xs leading-relaxed">{ncr.root_cause}</p></div>}
+                              {(ncr.detected_date || ncr.detection_source || ncr.affected_quantity != null) && (
+                                <div className="rounded-lg border border-border bg-accent/30 p-4">
+                                  <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Detection</div>
+                                  <div className="space-y-1.5 text-xs">
+                                    <div><span className="text-muted-foreground">Detected date:</span> <span className="font-medium">{ncr.detected_date || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Source:</span> <span className="font-medium">{ncr.detection_source || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Affected quantity:</span> <span className="font-medium">{ncr.affected_quantity ?? '—'}</span></div>
+                                  </div>
+                                </div>
+                              )}
+                              {(ncr.disposition_reason || ncr.containment_action || ncr.impact_assessment) && (
+                                <div className="rounded-lg border border-border bg-accent/30 p-4">
+                                  <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Disposition and Impact</div>
+                                  <div className="space-y-2 text-xs">
+                                    {ncr.disposition_reason && <p><span className="text-muted-foreground">Reason:</span> <span className="font-medium">{ncr.disposition_reason}</span></p>}
+                                    {ncr.containment_action && <p><span className="text-muted-foreground">Containment:</span> <span className="font-medium">{ncr.containment_action}</span></p>}
+                                    {ncr.impact_assessment && <p><span className="text-muted-foreground">Impact:</span> <span className="font-medium">{ncr.impact_assessment}</span></p>}
+                                  </div>
+                                </div>
+                              )}
                               <div className="flex gap-2">
                                 <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: ncr.id, status: 'closed' })}>Close NCR</Button>
                                 <Button size="sm" variant="outline" className="text-status-danger" onClick={() => deleteMutation.mutate(ncr.id)}>Delete</Button>

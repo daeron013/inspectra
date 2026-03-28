@@ -145,7 +145,43 @@ const InspectionsPage = () => {
                 <div><span className="text-muted-foreground">Sample Size:</span><div className="font-medium">{selected.sample_size}</div></div>
                 <div><span className="text-muted-foreground">Defects:</span><div className="font-medium">{selected.defects_found || 0}</div></div>
                 <div><span className="text-muted-foreground">Type:</span><div className="font-medium capitalize">{selected.inspection_type}</div></div>
+                <div><span className="text-muted-foreground">Rejected Units:</span><div className="font-medium">{selected.rejected_units ?? '—'}</div></div>
+                <div><span className="text-muted-foreground">Sampling / AQL:</span><div className="font-medium">{`${selected.sampling_plan || '—'} / ${selected.aql_level || '—'}`}</div></div>
               </div>
+              {(selected.acceptance_criteria || selected.environmental_conditions || selected.equipment_used?.length > 0) && (
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Inspection Controls</div>
+                  {selected.acceptance_criteria && <p className="text-xs"><span className="text-muted-foreground">Acceptance criteria:</span> <span className="font-medium">{selected.acceptance_criteria}</span></p>}
+                  {selected.environmental_conditions && <p className="text-xs"><span className="text-muted-foreground">Environment:</span> <span className="font-medium">{selected.environmental_conditions}</span></p>}
+                  {selected.equipment_used?.length > 0 && <p className="text-xs"><span className="text-muted-foreground">Equipment:</span> <span className="font-medium">{selected.equipment_used.join(', ')}</span></p>}
+                </div>
+              )}
+              {selected.defect_categories?.length > 0 && (
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Defect Categories</div>
+                  <div className="space-y-1.5">
+                    {selected.defect_categories.map((item: any, index: number) => (
+                      <div key={`${item.category}-${index}`} className="text-xs flex justify-between gap-4">
+                        <span className="text-muted-foreground">{item.category || 'Unspecified'}</span>
+                        <span className="font-medium">{item.count ?? '—'}{item.severity ? ` · ${item.severity}` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selected.measurements?.length > 0 && (
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Measured Characteristics</div>
+                  <div className="space-y-1.5">
+                    {selected.measurements.map((item: any, index: number) => (
+                      <div key={`${item.parameter}-${index}`} className="text-xs">
+                        <span className="font-medium">{item.parameter || 'Measurement'}</span>
+                        <span className="text-muted-foreground"> · {item.value || '—'}{item.unit ? ` ${item.unit}` : ''} · spec {item.spec_min || '—'} to {item.spec_max || '—'} · {item.result || 'unknown'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {selected.notes && (
                 <div className="rounded-lg border border-border p-3">
                   <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Notes</div>

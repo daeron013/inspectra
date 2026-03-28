@@ -4,7 +4,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { useParts, useCreatePart, useUpdatePart, useDeletePart, useSuppliers, useLots, useDevices, useInspections, useNCRs, useCAPAs } from "@/hooks/useQMS";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, ShieldCheck, CheckCircle, XCircle, Clock, AlertTriangle, Search, ArrowRight, Link2, Cpu, FileDown } from "lucide-react";
+import { Plus, Edit, Trash2, ShieldCheck, CheckCircle, XCircle, Clock, AlertTriangle, Search, ArrowRight, Link2, Cpu, FileDown, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,6 +66,8 @@ const PartsPage = () => {
   const { data: ncrs = [] } = useNCRs();
   const { data: capas = [] } = useCAPAs();
   const [lotSearch, setLotSearch] = useState('');
+  const [partSearch, setPartSearch] = useState('');
+  const [selectedPart, setSelectedPart] = useState<any | null>(null);
 
   const handleDownloadReport = (part: Record<string, any>) => {
     const supplier = suppliers.find(s => s.id === part.supplier_id) || null;
@@ -102,14 +104,26 @@ const PartsPage = () => {
     return <Clock className="h-3 w-3 text-status-warning" />;
   };
 
+  const filteredParts = parts.filter((part) =>
+    [part.part_number, part.name, part.description, (part as any).suppliers?.name, part.fda_clearance]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(partSearch.toLowerCase())),
+  );
+
+  const filteredLots = lots.filter((lot) =>
+    [lot.lot_number, (lot as any).parts?.name, (lot as any).parts?.part_number, (lot as any).suppliers?.name]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(partSearch.toLowerCase())),
+  );
+
   return (
-    <PageLayout title="Parts Catalog" subtitle="FDA-approved parts, lot tracking & expiration monitoring">
+    <PageLayout title="Parts and Suppliers" subtitle="Parts catalog with linked supplier qualification and lot traceability">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Parts', value: parts.length },
+          { label: 'Qualified Suppliers', value: suppliers.filter(s => s.status === 'approved' || s.status === 'conditional').length },
           { label: 'FDA Cleared', value: parts.filter(p => p.fda_clearance).length },
           { label: 'Active Lots', value: lots.filter(l => l.status === 'approved').length },
-          { label: 'Expired Lots', value: lots.filter(l => isExpired(l.expiration_date)).length },
         ].map(m => (
           <div key={m.label} className="glass-card rounded-xl p-4">
             <div className="text-2xl font-bold text-foreground">{m.value}</div>
@@ -125,11 +139,27 @@ const PartsPage = () => {
       <PartFormDialog open={formOpen} onOpenChange={setFormOpen} initial={editing || undefined} onSubmit={handleSubmit} suppliers={suppliers} />
 
       <Tabs defaultValue="catalog">
-        <TabsList><TabsTrigger value="catalog">Parts Catalog</TabsTrigger><TabsTrigger value="lots">Lot Inventory</TabsTrigger><TabsTrigger value="trace" className="gap-1"><Link2 className="h-3.5 w-3.5" /> Lot Trace</TabsTrigger></TabsList>
+        <TabsList>
+          <TabsTrigger value="catalog">Parts Catalog</TabsTrigger>
+          <TabsTrigger value="suppliers" className="gap-1"><Users className="h-3.5 w-3.5" /> Suppliers</TabsTrigger>
+          <TabsTrigger value="lots">Lot Inventory</TabsTrigger>
+          <TabsTrigger value="trace" className="gap-1"><Link2 className="h-3.5 w-3.5" /> Lot Trace</TabsTrigger>
+        </TabsList>
+        <div className="glass-card rounded-xl p-4 mt-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search part, supplier, lot, or FDA clearance..."
+              value={partSearch}
+              onChange={e => setPartSearch(e.target.value)}
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+        </div>
         <TabsContent value="catalog" className="mt-4">
           <div className="glass-card rounded-xl overflow-hidden">
             {isLoading ? <div className="p-8 text-center text-muted-foreground">Loading...</div> :
-            parts.length === 0 ? <div className="p-8 text-center text-muted-foreground">No parts yet.</div> : (
+            filteredParts.length === 0 ? <div className="p-8 text-center text-muted-foreground">No parts match your search.</div> : (
               <Table>
                 <TableHeader><TableRow>
                   <TableHead className="text-xs">Part #</TableHead><TableHead className="text-xs">Name</TableHead>
@@ -137,14 +167,14 @@ const PartsPage = () => {
                   <TableHead className="text-xs">Risk Class</TableHead><TableHead className="text-xs">Actions</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {parts.map(part => (
-                    <TableRow key={part.id}>
+                  {filteredParts.map(part => (
+                    <TableRow key={part.id} className="cursor-pointer hover:bg-accent/40 transition-colors" onClick={() => setSelectedPart(part)}>
                       <TableCell className="text-xs font-mono">{part.part_number}</TableCell>
                       <TableCell><div className="text-sm font-medium">{part.name}</div><div className="text-[10px] text-muted-foreground">{part.description}</div></TableCell>
                       <TableCell>
                         {(part as any).suppliers?.name ? (
                           <button
-                            onClick={() => navigate(`/suppliers/${part.supplier_id}`)}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/suppliers/${part.supplier_id}`); }}
                             className="text-xs font-medium text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
                           >
                             {(part as any).suppliers.name}
@@ -159,9 +189,9 @@ const PartsPage = () => {
                       <TableCell><Badge variant="outline" className="text-[10px]">Class {part.risk_class}</Badge></TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="outline" size="sm" className="h-7 text-[10px]" title="Download Compliance Report" onClick={() => handleDownloadReport(part)}><FileDown className="h-3 w-3" /></Button>
-                          <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => { setEditing(part); setFormOpen(true); }}><Edit className="h-3 w-3" /></Button>
-                          <Button variant="outline" size="sm" className="h-7 text-[10px] text-status-danger" onClick={() => deleteMutation.mutate(part.id)}><Trash2 className="h-3 w-3" /></Button>
+                          <Button variant="outline" size="sm" className="h-7 text-[10px]" title="Download Compliance Report" onClick={(e) => { e.stopPropagation(); handleDownloadReport(part); }}><FileDown className="h-3 w-3" /></Button>
+                          <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={(e) => { e.stopPropagation(); setEditing(part); setFormOpen(true); }}><Edit className="h-3 w-3" /></Button>
+                          <Button variant="outline" size="sm" className="h-7 text-[10px] text-status-danger" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(part.id); }}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -171,9 +201,61 @@ const PartsPage = () => {
             )}
           </div>
         </TabsContent>
+        <TabsContent value="suppliers" className="mt-4">
+          <div className="glass-card rounded-xl overflow-hidden">
+            {suppliers.filter((supplier) =>
+              [supplier.name, supplier.code, supplier.contact_email, supplier.certification_type]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(partSearch.toLowerCase()))
+            ).length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">No suppliers match your search.</div>
+            ) : (
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead className="text-xs">Code</TableHead>
+                  <TableHead className="text-xs">Supplier</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Risk</TableHead>
+                  <TableHead className="text-xs">Certification</TableHead>
+                  <TableHead className="text-xs">Linked Parts</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {suppliers
+                    .filter((supplier) =>
+                      [supplier.name, supplier.code, supplier.contact_email, supplier.certification_type]
+                        .filter(Boolean)
+                        .some((value) => String(value).toLowerCase().includes(partSearch.toLowerCase()))
+                    )
+                    .map((supplier) => (
+                      <TableRow
+                        key={supplier.id}
+                        className="cursor-pointer hover:bg-accent/40 transition-colors"
+                        onClick={() => navigate(`/suppliers/${supplier.id}`)}
+                      >
+                        <TableCell className="text-xs font-mono">{supplier.code}</TableCell>
+                        <TableCell>
+                          <div className="text-sm font-medium text-primary hover:underline">{supplier.name}</div>
+                          <div className="text-[10px] text-muted-foreground">{supplier.contact_email || "—"}</div>
+                        </TableCell>
+                        <TableCell><Badge variant="outline" className="text-[10px] capitalize">{supplier.status}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className="text-[10px] capitalize">{supplier.risk_level || "—"}</Badge></TableCell>
+                        <TableCell>
+                          <div className="text-xs">{supplier.certification_type || "—"}</div>
+                          <div className="text-[10px] text-muted-foreground">{supplier.certification_expiry || "No expiry"}</div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {parts.filter((part) => part.supplier_id === supplier.id).length}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </TabsContent>
         <TabsContent value="lots" className="mt-4">
           <div className="glass-card rounded-xl overflow-hidden">
-            {lots.length === 0 ? <div className="p-8 text-center text-muted-foreground">No lots yet.</div> : (
+            {filteredLots.length === 0 ? <div className="p-8 text-center text-muted-foreground">No lots match your search.</div> : (
               <Table>
                 <TableHeader><TableRow>
                   <TableHead className="text-xs">Lot #</TableHead><TableHead className="text-xs">Part</TableHead>
@@ -181,7 +263,7 @@ const PartsPage = () => {
                   <TableHead className="text-xs">Received</TableHead><TableHead className="text-xs">Expiration</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {lots.map(lot => (
+                  {filteredLots.map(lot => (
                     <TableRow key={lot.id}>
                       <TableCell className="text-xs font-mono font-medium">{lot.lot_number}</TableCell>
                       <TableCell><div className="text-xs font-medium">{(lot as any).parts?.name || '—'}</div><div className="text-[10px] text-muted-foreground">{(lot as any).parts?.part_number}</div></TableCell>
@@ -314,6 +396,60 @@ const PartsPage = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!selectedPart} onOpenChange={(open) => { if (!open) setSelectedPart(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>{selectedPart?.name || "Part details"}</DialogTitle></DialogHeader>
+          {selectedPart && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-border/50 bg-accent/20 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Part Number</div>
+                  <div className="text-sm font-semibold font-mono">{selectedPart.part_number}</div>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-accent/20 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Risk Class</div>
+                  <div className="text-sm font-semibold">Class {selectedPart.risk_class || "—"}</div>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-accent/20 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">FDA</div>
+                  <div className="text-sm font-semibold">{selectedPart.fda_clearance || "—"}</div>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-accent/20 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Supplier</div>
+                  <div className="text-sm font-semibold">{(selectedPart as any).suppliers?.name || "—"}</div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-lg border border-border/50 p-4 space-y-2">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Specification Snapshot</div>
+                  <div className="text-xs"><span className="text-muted-foreground">Description:</span> <span className="font-medium">{selectedPart.description || "—"}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">Material:</span> <span className="font-medium">{selectedPart.material || "—"}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">Revision:</span> <span className="font-medium">{selectedPart.revision || "—"}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">Drawing #:</span> <span className="font-medium">{selectedPart.drawing_number || "—"}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">Critical to quality:</span> <span className="font-medium">{selectedPart.critical_to_quality == null ? "—" : selectedPart.critical_to_quality ? "Yes" : "No"}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">Sterilization:</span> <span className="font-medium">{selectedPart.sterilization_compatibility || "—"}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">Shelf life:</span> <span className="font-medium">{selectedPart.shelf_life_days ? `${selectedPart.shelf_life_days} days` : "—"}</span></div>
+                </div>
+                <div className="rounded-lg border border-border/50 p-4 space-y-2">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Linked Quality Activity</div>
+                  <div className="text-xs"><span className="text-muted-foreground">Lots:</span> <span className="font-medium">{lots.filter((l) => l.part_id === selectedPart.id).length}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">Inspections:</span> <span className="font-medium">{inspections.filter((i) => i.lot_id && lots.some((l) => l.id === i.lot_id && l.part_id === selectedPart.id)).length}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">NCRs:</span> <span className="font-medium">{ncrs.filter((n) => n.part_id === selectedPart.id).length}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">CAPAs:</span> <span className="font-medium">{capas.filter((c) => c.ncr_id && ncrs.some((n) => n.id === c.ncr_id && n.part_id === selectedPart.id)).length}</span></div>
+                  <div className="text-xs"><span className="text-muted-foreground">Source documents:</span> <span className="font-medium">{selectedPart.source_document_ids?.length || 0}</span></div>
+                  <div className="pt-2">
+                    <Button size="sm" variant="outline" className="gap-1" onClick={() => handleDownloadReport(selectedPart)}>
+                      <FileDown className="h-3 w-3" /> Export part packet
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 };

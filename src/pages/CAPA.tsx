@@ -171,6 +171,23 @@ const CAPAPage = () => {
                           <p className="text-xs leading-relaxed">{section.content}</p>
                         </div>
                       ))}
+                      {(capa.trigger_reason || capa.verification_method || capa.effectiveness_due_date || capa.recurrence_risk) && (
+                        <div className="rounded-lg border border-border bg-accent/30 p-4">
+                          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Effectiveness and Prevention</div>
+                          <div className="space-y-2 text-xs">
+                            {capa.trigger_reason && <p><span className="text-muted-foreground">Trigger:</span> <span className="font-medium">{capa.trigger_reason}</span></p>}
+                            {capa.verification_method && <p><span className="text-muted-foreground">Verification method:</span> <span className="font-medium">{capa.verification_method}</span></p>}
+                            {capa.effectiveness_due_date && <p><span className="text-muted-foreground">Effectiveness due:</span> <span className="font-medium">{capa.effectiveness_due_date}</span></p>}
+                            {capa.recurrence_risk && <p><span className="text-muted-foreground">Recurrence risk:</span> <span className="font-medium capitalize">{capa.recurrence_risk}</span></p>}
+                          </div>
+                        </div>
+                      )}
+                      {capa.source_document_ids?.length > 0 && (
+                        <div className="rounded-lg border border-border bg-accent/30 p-4">
+                          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Source Traceability</div>
+                          <p className="text-xs leading-relaxed">Linked source documents: {capa.source_document_ids.length}</p>
+                        </div>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>

@@ -99,9 +99,13 @@ const LotTracePage = () => {
                 <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Lot Details</div>
                 <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between"><span className="text-muted-foreground">Received:</span><span className="font-medium">{lot.received_date}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Manufactured:</span><span className="font-medium">{lot.manufacture_date || '—'}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Expiry:</span><span className="font-medium">{lot.expiration_date || 'N/A'}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Quantity:</span><span className="font-medium">{lot.quantity}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Batch #:</span><span className="font-medium font-mono">{lot.batch_number || '—'}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Inspection:</span><span className="font-medium capitalize">{lot.inspection_status}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">CoC:</span><span className="font-medium">{lot.certificate_of_conformance || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">CoA:</span><span className="font-medium">{lot.certificate_of_analysis || '—'}</span></div>
                 </div>
               </div>
               <div className="glass-card rounded-xl p-4">
@@ -111,7 +115,19 @@ const LotTracePage = () => {
                   {lot.inspection_status === 'passed' && <div>✓ Incoming inspection passed</div>}
                   {isRecalled && <div className="text-status-danger font-medium">⚠ Recall initiated</div>}
                   {isQuarantined && <div className="text-status-warning font-medium">⚠ Quarantined — awaiting disposition</div>}
+                  {lot.source_document_ids?.length > 0 && <div>✓ Source documents linked: {lot.source_document_ids.length}</div>}
                 </div>
+                {(lot.traceability_notes || lot.serial_numbers?.length > 0) && (
+                  <div className="mt-4 rounded-lg border border-border/50 bg-accent/20 p-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Traceability Evidence</div>
+                    {lot.traceability_notes && <p className="text-xs text-foreground mb-2">{lot.traceability_notes}</p>}
+                    {lot.serial_numbers?.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Serial numbers: <span className="text-foreground">{lot.serial_numbers.join(", ")}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

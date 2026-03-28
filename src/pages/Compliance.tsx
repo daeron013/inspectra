@@ -1,7 +1,16 @@
 import { PageLayout } from "@/components/PageLayout";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, AlertTriangle, XCircle, CalendarDays, ShieldCheck } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, XCircle, CalendarDays, ShieldCheck, FileDown, FileText, ClipboardCheck, Building2, Shield } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { useSuppliers, useParts, useLots, useInspections, useNCRs, useCAPAs } from "@/hooks/useQMS";
+import {
+  generateApprovedSupplierListPdf,
+  generateIncomingInspectionPacketPdf,
+  generateManagementReviewPdf,
+  generateNcrCapaRegisterPdf,
+  generateRequalificationPlanPdf,
+} from "@/utils/complianceDocumentPdf";
 
 interface ComplianceItem {
   id: string;
@@ -36,11 +45,51 @@ const statusConfig: Record<string, { label: string; className: string; icon: Rea
 };
 
 const CompliancePage = () => {
+  const { data: suppliers = [] } = useSuppliers();
+  const { data: parts = [] } = useParts();
+  const { data: lots = [] } = useLots();
+  const { data: inspections = [] } = useInspections();
+  const { data: ncrs = [] } = useNCRs();
+  const { data: capas = [] } = useCAPAs();
   const overdue = complianceItems.filter(c => c.status === 'overdue');
   const upcoming = complianceItems.filter(c => c.status === 'upcoming').sort((a, b) => a.daysRemaining - b.daysRemaining);
   const completed = complianceItems.filter(c => c.status === 'completed');
 
   const overallScore = Math.round(((complianceItems.length - overdue.length) / complianceItems.length) * 100);
+  const qmsData = { suppliers, parts, lots, inspections, ncrs, capas };
+
+  const documentCards = [
+    {
+      title: "Approved Supplier List",
+      description: "Current ASL with qualification status, certifications, risk, and requalification due dates.",
+      icon: Building2,
+      onClick: () => generateApprovedSupplierListPdf(qmsData),
+    },
+    {
+      title: "Supplier Requalification Plan",
+      description: "Risk-based review and audit schedule for supplier oversight and periodic requalification.",
+      icon: Shield,
+      onClick: () => generateRequalificationPlanPdf(qmsData),
+    },
+    {
+      title: "Incoming Inspection Packet",
+      description: "Receiving queue and recent inspection evidence for incoming material control.",
+      icon: ClipboardCheck,
+      onClick: () => generateIncomingInspectionPacketPdf(qmsData),
+    },
+    {
+      title: "NCR and CAPA Register",
+      description: "Inspection-ready register of nonconformances, dispositions, CAPAs, and due dates.",
+      icon: AlertTriangle,
+      onClick: () => generateNcrCapaRegisterPdf(qmsData),
+    },
+    {
+      title: "Management Review Summary",
+      description: "Leadership-level QMS summary covering supplier status, inspection backlog, NCRs, and CAPAs.",
+      icon: FileText,
+      onClick: () => generateManagementReviewPdf(qmsData),
+    },
+  ];
 
   return (
     <PageLayout title="Compliance Calendar" subtitle="Deadlines, requalifications, audits & regulatory tracking">
@@ -61,6 +110,44 @@ const CompliancePage = () => {
         <div className="glass-card p-5">
           <div className="text-3xl font-semibold text-status-success">{completed.length}</div>
           <div className="text-xs text-muted-foreground mt-1">Completed</div>
+        </div>
+      </div>
+
+      <div className="glass-card rounded-xl p-5 space-y-4">
+        <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Inspection Document Generator</div>
+            <h3 className="font-semibold text-base">Audit-ready ISO 13485 document drafts</h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
+              Generate controlled draft PDFs from live QMS data so the team does not have to assemble core inspection documents manually.
+              These are standards-aligned working documents and should still be reviewed, approved, and released under your company’s document-control SOP before external use.
+            </p>
+          </div>
+          <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+            QA approval required before official release
+          </Badge>
+        </div>
+
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {documentCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.title} className="rounded-xl border border-border/50 bg-accent/20 p-4 flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">{card.title}</div>
+                    <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="gap-2 mt-auto w-full" onClick={card.onClick}>
+                  <FileDown className="h-3.5 w-3.5" /> Generate PDF
+                </Button>
+              </div>
+            );
+          })}
         </div>
       </div>
 

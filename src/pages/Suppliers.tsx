@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
 import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier } from "@/hooks/useQMS";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Edit, ShieldCheck, ShieldAlert, ShieldX, XCircle } from "lucide-react";
+import { Plus, Trash2, Edit, ShieldCheck, ShieldAlert, ShieldX, Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,12 +74,15 @@ function SupplierFormDialog({ open, onOpenChange, initial, onSubmit }: {
 }
 
 const SuppliersPage = () => {
+  const navigate = useNavigate();
   const { data: suppliers = [], isLoading } = useSuppliers();
   const createMutation = useCreateSupplier();
   const updateMutation = useUpdateSupplier();
   const deleteMutation = useDeleteSupplier();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "pending" | "disqualified">("all");
 
   const handleSubmit = (data: Record<string, any>) => {
     if (editing) {
@@ -96,24 +100,64 @@ const SuppliersPage = () => {
     return diff > 0 && diff < 90;
   };
 
+  const filteredSuppliers = suppliers.filter((supplier) => {
+    const matchesSearch = [supplier.name, supplier.code, supplier.contact_email, supplier.certification_type]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(search.toLowerCase()));
+    const matchesStatus = statusFilter === "all" || supplier.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const summaryCards = [
+    { key: "all" as const, label: "All Suppliers", value: suppliers.length, helper: "Browse and search all records" },
+    { key: "approved" as const, label: "Approved", value: suppliers.filter((s) => s.status === "approved").length, helper: "Qualified and active vendors" },
+    { key: "pending" as const, label: "Pending", value: suppliers.filter((s) => s.status === "pending").length, helper: "Need qualification or review" },
+    { key: "disqualified" as const, label: "Disqualified", value: suppliers.filter((s) => s.status === "disqualified").length, helper: "Blocked or retired suppliers" },
+  ];
+
   return (
     <PageLayout title="Suppliers" subtitle="Supplier qualification, certifications & FDA forms">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Suppliers', value: suppliers.length },
-          { label: 'Approved', value: suppliers.filter(s => s.status === 'approved').length },
-          { label: 'Pending', value: suppliers.filter(s => s.status === 'pending').length },
-          { label: 'Disqualified', value: suppliers.filter(s => s.status === 'disqualified').length },
-        ].map(m => (
-          <div key={m.label} className="glass-card rounded-xl p-4">
-            <div className="text-2xl font-bold text-foreground">{m.value}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{m.label}</div>
-          </div>
+        {summaryCards.map((card) => (
+          <button
+            key={card.label}
+            type="button"
+            onClick={() => setStatusFilter(card.key)}
+            className={`glass-card rounded-xl p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 ${statusFilter === card.key ? "ring-1 ring-primary/30 border-primary/30 bg-primary/5" : ""}`}
+          >
+            <div className="text-2xl font-bold text-foreground">{card.value}</div>
+            <div className="text-xs font-medium text-foreground mt-0.5">{card.label}</div>
+            <div className="text-[10px] text-muted-foreground mt-1">{card.helper}</div>
+          </button>
         ))}
       </div>
 
-      <div className="flex justify-end">
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="gap-2"><Plus className="h-4 w-4" /> Add Supplier</Button>
+      <div className="glass-card rounded-xl p-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search supplier, code, email, or certificate..."
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <SelectTrigger className="w-[170px] h-9">
+                <SelectValue placeholder="Filter status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="disqualified">Disqualified</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="gap-2"><Plus className="h-4 w-4" /> Add Supplier</Button>
+          </div>
+        </div>
       </div>
 
       <SupplierFormDialog open={formOpen} onOpenChange={setFormOpen} initial={editing || undefined} onSubmit={handleSubmit} />
@@ -122,7 +166,7 @@ const SuppliersPage = () => {
         <div className="overflow-x-auto">
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Loading suppliers...</div>
-          ) : suppliers.length === 0 ? (
+          ) : filteredSuppliers.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">No suppliers yet. Add your first supplier above.</div>
           ) : (
             <Table>
@@ -138,11 +182,15 @@ const SuppliersPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {suppliers.map(supplier => {
+                {filteredSuppliers.map(supplier => {
                   const sc = statusConfig[supplier.status] || statusConfig.pending;
                   const StatusIcon = sc.icon;
                   return (
-                    <TableRow key={supplier.id}>
+                    <TableRow
+                      key={supplier.id}
+                      className="cursor-pointer hover:bg-accent/40 transition-colors"
+                      onClick={() => navigate(`/suppliers/${supplier.id}`)}
+                    >
                       <TableCell className="text-xs font-mono">{supplier.code}</TableCell>
                       <TableCell>
                         <div className="text-sm font-medium">{supplier.name}</div>
@@ -169,10 +217,13 @@ const SuppliersPage = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => { setEditing(supplier); setFormOpen(true); }}>
+                          <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={(e) => { e.stopPropagation(); navigate(`/suppliers/${supplier.id}`); }}>
+                            Open <ArrowRight className="h-3 w-3" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={(e) => { e.stopPropagation(); setEditing(supplier); setFormOpen(true); }}>
                             <Edit className="h-3 w-3" />
                           </Button>
-                          <Button variant="outline" size="sm" className="h-7 text-[10px] text-status-danger" onClick={() => deleteMutation.mutate(supplier.id)}>
+                          <Button variant="outline" size="sm" className="h-7 text-[10px] text-status-danger" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(supplier.id); }}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>

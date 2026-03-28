@@ -62,6 +62,13 @@ export async function processUploadedDocument(documentId: string, userId: string
   });
 }
 
+export async function deleteDocument(documentId: string, userId: string) {
+  const params = new URLSearchParams({ userId });
+  return apiFetch<void>(`/api/documents/${documentId}?${params.toString()}`, {
+    method: "DELETE",
+  });
+}
+
 export async function listQmsRecords(entity: EntityName, userId: string) {
   const params = new URLSearchParams({ userId });
   return apiFetch<any[]>(`/api/qms/${entity}?${params.toString()}`);

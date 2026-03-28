@@ -10,6 +10,7 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AuthPage from "./pages/Auth.tsx";
 import PartsPage from "./pages/Parts.tsx";
+import SuppliersPage from "./pages/Suppliers.tsx";
 import SupplierDetailPage from "./pages/SupplierDetail.tsx";
 
 import UploadPage from "./pages/Upload.tsx";
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><AIAssistantPage /></ProtectedRoute>} />
               <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/parts" element={<ProtectedRoute><PartsPage /></ProtectedRoute>} />
+              <Route path="/suppliers" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
               <Route path="/suppliers/:id" element={<ProtectedRoute><SupplierDetailPage /></ProtectedRoute>} />
               <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
               <Route path="/inspections" element={<ProtectedRoute><InspectionsPage /></ProtectedRoute>} />

@@ -194,6 +194,53 @@ app.get("/api/documents/:id/file", async (req, res) => {
   }
 });
 
+app.delete("/api/documents/:id", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+
+  try {
+    const db = await getDb();
+    const bucket = await getBucket();
+    const documents = db.collection("documents");
+    const documentId = toObjectId(req.params.id);
+    const document = await documents.findOne({
+      _id: documentId,
+      user_id: userId,
+    });
+
+    if (!document) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    await db.collection("document_chunks").deleteMany({
+      document_id: documentId,
+      user_id: userId,
+    });
+
+    if (document.gridfs_file_id) {
+      try {
+        await bucket.delete(toObjectId(document.gridfs_file_id));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.toLowerCase().includes("file not found")) {
+          throw error;
+        }
+      }
+    }
+
+    await documents.deleteOne({
+      _id: documentId,
+      user_id: userId,
+    });
+
+    res.status(204).end();
+  } catch (error) {
+    console.error("delete document failed", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to delete document" });
+  }
+});
+
 app.get("/api/qms/:entity", async (req, res) => {
   const userId = requireUserId(req, res);
   if (!userId) return;

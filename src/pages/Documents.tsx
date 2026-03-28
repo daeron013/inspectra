@@ -1,17 +1,28 @@
 import { PageLayout } from "@/components/PageLayout";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Search, Eye, Printer, ExternalLink, Download, X } from "lucide-react";
+import { FileText, Search, Eye, Printer, ExternalLink, Download, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useSuppliers, useParts } from "@/hooks/useQMS";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { getDocumentFileUrl, listDocuments } from "@/lib/api";
+import { deleteDocument, getDocumentFileUrl, listDocuments } from "@/lib/api";
 import { generateDocumentAuditPdf } from "@/utils/documentAuditPdf";
+import { useToast } from "@/hooks/use-toast";
 
 const typeLabels: Record<string, string> = {
   supplier_certificate: 'Certificate',
@@ -288,9 +299,33 @@ const DocumentsPage = () => {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('all');
   const [viewingDoc, setViewingDoc] = useState<any | null>(null);
+  const [deletingDoc, setDeletingDoc] = useState<any | null>(null);
   const { data: suppliers = [] } = useSuppliers();
   const { data: parts = [] } = useParts();
   const { data: documents = [] } = useDocuments();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: async (doc: any) => {
+      if (!user?.id) {
+        throw new Error("You must be signed in to delete documents");
+      }
+      await deleteDocument(doc.id, user.id);
+    },
+    onSuccess: (_data, doc) => {
+      if (viewingDoc?.id === doc.id) {
+        setViewingDoc(null);
+      }
+      setDeletingDoc(null);
+      qc.invalidateQueries({ queryKey: ["documents"] });
+      toast({ title: "Document deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    },
+  });
 
   const filtered = documents.filter(d => {
     const matchesSearch = d.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -378,14 +413,27 @@ const DocumentsPage = () => {
                           <TableCell className="text-xs">{new Date(doc.created_at).toLocaleDateString()}</TableCell>
                           <TableCell className="text-xs">{doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : '—'}</TableCell>
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-[10px] gap-1"
-                              onClick={(e) => { e.stopPropagation(); setViewingDoc(doc); }}
-                            >
-                              <Eye className="h-3 w-3" /> View
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[10px] gap-1"
+                                onClick={(e) => { e.stopPropagation(); setViewingDoc(doc); }}
+                              >
+                                <Eye className="h-3 w-3" /> View
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[10px] gap-1 text-destructive hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingDoc(doc);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" /> Delete
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -413,6 +461,30 @@ const DocumentsPage = () => {
       {viewingDoc && (
         <DocumentViewer doc={viewingDoc} open={!!viewingDoc} onClose={() => setViewingDoc(null)} />
       )}
+
+      <AlertDialog open={!!deletingDoc} onOpenChange={(open) => { if (!open) setDeletingDoc(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the document record, uploaded file, and generated vector chunks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!deletingDoc) return;
+                deleteMutation.mutate(deletingDoc);
+              }}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageLayout>
   );
 };

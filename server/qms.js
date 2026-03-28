@@ -102,6 +102,14 @@ function recordCode(prefix) {
   return `${prefix}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
+function uniqueValues(values = []) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function appendSourceDocument(existingValue, documentId) {
+  return uniqueValues([...(Array.isArray(existingValue) ? existingValue : []), documentId]);
+}
+
 async function buildMaps(db, userId) {
   const [suppliers, parts, lots, ncrs] = await Promise.all([
     db.collection("suppliers").find({ user_id: userId }).toArray(),
@@ -302,6 +310,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
   let partId = null;
   let lotId = null;
   let ncrId = null;
+  const sourceDocumentIds = [documentId];
 
   if (extracted.supplier?.name) {
     const existingSupplier = await suppliers.findOne({
@@ -333,6 +342,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
         requalification_frequency_days: extracted.supplier.requalification_frequency_days ?? existingSupplier.requalification_frequency_days ?? null,
         certifications: extracted.supplier.certifications ?? existingSupplier.certifications ?? null,
         audit_findings: extracted.supplier.audit_findings ?? existingSupplier.audit_findings ?? null,
+        source_document_ids: appendSourceDocument(existingSupplier.source_document_ids, documentId),
         updated_at: now,
       });
       await suppliers.updateOne({ _id: existingSupplier._id }, { $set: updateFields });
@@ -363,6 +373,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
         requalification_frequency_days: extracted.supplier.requalification_frequency_days ?? null,
         certifications: extracted.supplier.certifications || null,
         audit_findings: extracted.supplier.audit_findings || null,
+        source_document_ids: sourceDocumentIds,
         created_at: now,
         updated_at: now,
       }));
@@ -402,6 +413,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
             shelf_life_days: extracted.part.shelf_life_days ?? existingPart.shelf_life_days ?? null,
             sterilization_compatibility: extracted.part.sterilization_compatibility || existingPart.sterilization_compatibility || null,
             intended_use: extracted.part.intended_use || existingPart.intended_use || null,
+            source_document_ids: appendSourceDocument(existingPart.source_document_ids, documentId),
             updated_at: now,
           }),
         },
@@ -424,6 +436,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
         shelf_life_days: extracted.part.shelf_life_days ?? null,
         sterilization_compatibility: extracted.part.sterilization_compatibility || null,
         intended_use: extracted.part.intended_use || null,
+        source_document_ids: sourceDocumentIds,
         created_at: now,
         updated_at: now,
       }));
@@ -457,6 +470,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
             certificate_of_analysis: extracted.lot.certificate_of_analysis || existingLot.certificate_of_analysis || null,
             traceability_notes: extracted.lot.traceability_notes || existingLot.traceability_notes || null,
             serial_numbers: extracted.lot.serial_numbers || existingLot.serial_numbers || null,
+            source_document_ids: appendSourceDocument(existingLot.source_document_ids, documentId),
             updated_at: now,
           }),
         },
@@ -478,6 +492,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
         certificate_of_analysis: extracted.lot.certificate_of_analysis || null,
         traceability_notes: extracted.lot.traceability_notes || null,
         serial_numbers: extracted.lot.serial_numbers || null,
+        source_document_ids: sourceDocumentIds,
         created_at: now,
         updated_at: now,
       }));
@@ -510,6 +525,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
       equipment_used: extracted.inspection.equipment_used || null,
       environmental_conditions: extracted.inspection.environmental_conditions || null,
       defect_categories: extracted.inspection.defect_categories || null,
+      source_document_ids: sourceDocumentIds,
       created_at: now,
       updated_at: now,
     }));
@@ -536,6 +552,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
       containment_action: extracted.ncr.containment_action || null,
       impact_assessment: extracted.ncr.impact_assessment || null,
       affected_quantity: extracted.ncr.affected_quantity ?? null,
+      source_document_ids: sourceDocumentIds,
       created_at: now,
       updated_at: now,
     }));
@@ -567,6 +584,7 @@ export async function upsertExtractedQmsData(db, { documentId, userId, extracted
       verification_method: extracted.capa.verification_method || null,
       effectiveness_due_date: extracted.capa.effectiveness_due_date || null,
       recurrence_risk: extracted.capa.recurrence_risk || null,
+      source_document_ids: sourceDocumentIds,
       created_at: now,
       updated_at: now,
     }));
