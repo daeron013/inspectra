@@ -1,10 +1,9 @@
 import { AgentRun } from "@/data/mockData";
-import { Package, Search, AlertTriangle, Brain, Clock } from "lucide-react";
+import { Package, Search, Brain, Clock } from "lucide-react";
 
 const agentConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
   supplier: { icon: Package, color: 'bg-agent-supplier/15 text-agent-supplier border-agent-supplier/25' },
   inspection: { icon: Search, color: 'bg-agent-inspection/15 text-agent-inspection border-agent-inspection/25' },
-  ncr: { icon: AlertTriangle, color: 'bg-agent-ncr/15 text-agent-ncr border-agent-ncr/25' },
   capa: { icon: Brain, color: 'bg-agent-capa/15 text-agent-capa border-agent-capa/25' },
   compliance: { icon: Clock, color: 'bg-agent-compliance/15 text-agent-compliance border-agent-compliance/25' },
 };

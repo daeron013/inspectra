@@ -69,7 +69,6 @@ export default {
         agent: {
           supplier: "hsl(var(--agent-supplier))",
           inspection: "hsl(var(--agent-inspection))",
-          ncr: "hsl(var(--agent-ncr))",
           capa: "hsl(var(--agent-capa))",
           compliance: "hsl(var(--agent-compliance))",
         },

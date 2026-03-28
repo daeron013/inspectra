@@ -18,7 +18,7 @@ export interface PriorityItem {
 
 export interface AgentRun {
   id: string;
-  agent: 'supplier' | 'inspection' | 'ncr' | 'capa' | 'compliance';
+  agent: 'supplier' | 'inspection' | 'capa' | 'compliance';
   agentLabel: string;
   action: string;
   detail: string;
@@ -49,7 +49,8 @@ export const priorityItems: PriorityItem[] = [
   {
     id: '1',
     title: 'Requalify MedTech Components Ltd',
-    description: 'Supplier requalification overdue by 14 days. Risk: critical titanium alloy supplier.',
+    description:
+      'Regulatory risk triage: sole-source titanium supplier, Class II device exposure — requal overdue 14 days. Elevated above other upcoming deadlines.',
     risk: 'critical',
     agent: 'Compliance Agent',
     timestamp: '2 min ago',
@@ -76,9 +77,9 @@ export const priorityItems: PriorityItem[] = [
   {
     id: '4',
     title: 'NCR #1042 — Dimensional Out of Spec',
-    description: 'Lot 4821: 3/50 units failed dimensional check. Awaiting disposition.',
+    description: 'Lot 4821: 3/50 units failed dimensional check. Inspection agent opened NCR; disposition pending.',
     risk: 'high',
-    agent: 'Nonconformance Agent',
+    agent: 'Inspection Agent',
     timestamp: '22 min ago',
     type: 'ncr',
   },
@@ -98,53 +99,48 @@ export const agentRuns: AgentRun[] = [
     id: '1',
     agent: 'inspection',
     agentLabel: 'Inspection Agent',
-    action: 'Parsed incoming report',
-    detail: 'Lot 4821 — Found 3/50 units out of spec (±0.05mm tolerance exceeded)',
+    action: 'Anomaly detected — dimensional failure',
+    detail:
+      'Lot 4821 — 3/50 units exceeded ±0.05mm tolerance. Opened NCR #1042; auto-linked to similar issues (NCR #998, #1011). Suggested disposition: Scrap.',
     timestamp: '2 min ago',
-    result: 'Flagged for NCR',
+    result: 'NCR #1042 created',
   },
   {
     id: '2',
-    agent: 'ncr',
-    agentLabel: 'Nonconformance Agent',
-    action: 'Generated NCR #1042',
-    detail: 'Auto-linked to 2 similar past issues (NCR #998, #1011). Suggested disposition: Scrap.',
-    timestamp: '2 min ago',
-    result: 'NCR created',
+    agent: 'capa',
+    agentLabel: 'CAPA Agent',
+    action: 'NCR history scan — recurring pattern',
+    detail:
+      'Reviewed NCR stream: repeated failures across 3 lots from Supplier S-112. Opened CAPA; root cause hypothesis: supplier calibration drift.',
+    timestamp: '5 min ago',
+    result: 'CAPA opened',
   },
   {
     id: '3',
-    agent: 'capa',
-    agentLabel: 'CAPA Agent',
-    action: 'Pattern analysis complete',
-    detail: 'Detected recurring failure across 3 lots from Supplier S-112. Root cause suggestion: supplier calibration drift.',
-    timestamp: '5 min ago',
-    result: 'CAPA initiated',
-  },
-  {
-    id: '4',
     agent: 'supplier',
     agentLabel: 'Supplier Agent',
-    action: 'Performance review triggered',
-    detail: 'MedTech Components Ltd — defect rate trending up: 1.2% → 3.8% → 6.2% over 3 quarters.',
+    action: 'Supplier risk scoring refresh',
+    detail:
+      'MedTech Components Ltd — composite risk up: defect rate 1.2% → 3.8% → 6.2% over 3 quarters; ISO 13485 cert expires in 45 days.',
     timestamp: '12 min ago',
     result: 'Status → At Risk',
   },
   {
-    id: '5',
+    id: '4',
     agent: 'compliance',
     agentLabel: 'Compliance Agent',
-    action: 'Deadline scan complete',
-    detail: '5 requalifications due in next 30 days. 1 overdue (MedTech Components Ltd).',
+    action: 'Regulatory risk triage',
+    detail:
+      'Cross-checked deadlines vs. context: sole-source MedTech (Class II device) requal overdue 14 days → critical; other due dates lower priority (dual-sourced, clean audit history).',
     timestamp: '15 min ago',
-    result: 'Alerts sent',
+    result: 'Critical queue updated',
   },
   {
-    id: '6',
+    id: '5',
     agent: 'inspection',
     agentLabel: 'Inspection Agent',
-    action: 'Visual inspection analysis',
-    detail: 'Lot 7291 — surface finish anomaly detected on 1/30 samples. Within acceptable range.',
+    action: 'Visual inspection — minor anomaly',
+    detail: 'Lot 7291 — surface finish variance on 1/30 samples; within spec. No NCR required.',
     timestamp: '28 min ago',
     result: 'Passed',
   },

@@ -2,14 +2,34 @@ import { useState } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { agentRuns } from "@/data/mockData";
 import type { AgentRun } from "@/data/mockData";
-import { Package, Search, AlertTriangle, Brain, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Package, Search, Brain, Clock, ChevronDown, ChevronUp } from "lucide-react";
 
 const agentConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string; description: string; color: string }> = {
-  supplier: { icon: Package, label: "Supplier Agent", description: "Monitors supplier performance, risk levels, and certification status", color: "text-agent-supplier" },
-  inspection: { icon: Search, label: "Inspection Agent", description: "Analyzes incoming inspections and flags anomalies", color: "text-agent-inspection" },
-  ncr: { icon: AlertTriangle, label: "NCR Agent", description: "Generates and tracks nonconformance reports", color: "text-agent-ncr" },
-  capa: { icon: Brain, label: "CAPA Agent", description: "Detects patterns and recommends corrective actions", color: "text-agent-capa" },
-  compliance: { icon: Clock, label: "Compliance Agent", description: "Tracks deadlines, audits, and regulatory requirements", color: "text-agent-compliance" },
+  supplier: {
+    icon: Package,
+    label: "Supplier Agent",
+    description: "Supplier risk scoring, certification expiry, and defect rate trends",
+    color: "text-agent-supplier",
+  },
+  inspection: {
+    icon: Search,
+    label: "Inspection Agent",
+    description: "Anomaly detection on inspection data — flags defects and opens NCRs when warranted",
+    color: "text-agent-inspection",
+  },
+  capa: {
+    icon: Brain,
+    label: "CAPA Agent",
+    description: "Reads NCR history, detects recurring patterns, and initiates CAPAs",
+    color: "text-agent-capa",
+  },
+  compliance: {
+    icon: Clock,
+    label: "Compliance Agent",
+    description:
+      "Deadline scanning, audit tracking, and regulatory calendar — prioritizes which dates matter using cross-domain context (sole-source exposure, device risk class, audit history)",
+    color: "text-agent-compliance",
+  },
 };
 
 function groupByAgent(runs: AgentRun[]): Record<string, AgentRun[]> {

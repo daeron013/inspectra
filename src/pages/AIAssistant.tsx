@@ -171,7 +171,7 @@ function extractActions(content: string): string[] {
 const quickActions = [
   { label: "Inspection lots", icon: Search, prompt: "Review all lots with pending inspections. For each lot, show the lot number, part, supplier, quantity, and current inspection status. Flag any that are overdue or at risk." },
   { label: "Supplier status", icon: ShieldCheck, prompt: "Give me a complete supplier status report. For each supplier show: name, risk level, defect rate trend, certification expiry, days since last audit, and open NCRs. Highlight any that need requalification or are at risk." },
-  { label: "Generate NCR + CAPA", icon: AlertOctagon, prompt: "Based on the current data, identify which lots or parts should have an NCR generated. For each, draft the NCR with: title, severity, description, suggested disposition, and root cause hypothesis. If patterns exist across NCRs, recommend opening a CAPA with corrective actions." },
+  { label: "Inspection → NCR → CAPA", icon: AlertOctagon, prompt: "From inspection and lot data, find anomalies that warrant opening an NCR. For each candidate, draft: title, severity, description, suggested disposition, and root cause hypothesis. Then review NCR history for recurring patterns (supplier, part, failure mode) and recommend CAPAs where the same issue repeats." },
   { label: "Open NCRs", icon: AlertTriangle, prompt: "List all open NCRs with their severity, linked parts, lots, and suppliers. For each, suggest next steps and disposition recommendations." },
   { label: "Audit readiness", icon: FileText, prompt: "Assess our current audit readiness for an ISO 13485 FDA inspection. Check: 1) All suppliers have current certifications, 2) All lots have completed inspections, 3) All NCRs have dispositions, 4) All CAPAs have action plans, 5) No overdue requalifications. Give a readiness score and list gaps." },
   { label: "Compliance workspace", icon: Brain, prompt: "Generate a compliance workspace summary with: 1) Inspector packets overview for each supplier, 2) Parts we can buy that are FDA approved, 3) Supplies on the shelf with expiration status, 4) Any recalls or affected finished products." },
@@ -365,7 +365,7 @@ const AIAssistantPage = () => {
                 {[
                   "Which lots failed inspection and what should we do?",
                   "Is MedTech Inc a reliable supplier? Show me the data.",
-                  "Draft an NCR for the highest-risk open issue",
+                  "From the latest inspections, what should become an NCR and why?",
                   "What do I need to prepare for an FDA audit next week?",
                 ].map((prompt) => (
                   <button
