@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AuditTrailPanel } from "@/components/AuditTrailPanel";
 
 function CAPAFormDialog({ open, onOpenChange, onSubmit, ncrs }: {
   open: boolean; onOpenChange: (o: boolean) => void;
@@ -263,6 +264,7 @@ const CAPAPage = () => {
                           <p className="text-xs leading-relaxed">Linked source documents: {capa.source_document_ids.length}</p>
                         </div>
                       )}
+                      <AuditTrailPanel entityType="capas" entityId={capa.id} />
                     </div>
                   </DialogContent>
                 </Dialog>

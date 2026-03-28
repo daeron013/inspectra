@@ -26,19 +26,6 @@ interface ComplianceItem {
   frequency: string;
 }
 
-const complianceItems: ComplianceItem[] = [
-  { id: 'CMP-001', title: 'Supplier Requalification', type: 'requalification', entity: 'MedTech Components Ltd (S-112)', dueDate: '2024-12-15', status: 'overdue', daysRemaining: -10, lastCompleted: '2024-09-15', frequency: 'Quarterly' },
-  { id: 'CMP-002', title: 'Supplier Requalification', type: 'requalification', entity: 'SterileTech Solutions (S-301)', dueDate: '2024-11-05', status: 'overdue', daysRemaining: -50, lastCompleted: '2024-08-05', frequency: 'Quarterly' },
-  { id: 'CMP-003', title: 'Supplier Requalification', type: 'requalification', entity: 'BioSafe Packaging Corp (S-087)', dueDate: '2025-01-20', status: 'upcoming', daysRemaining: 26, lastCompleted: '2024-10-20', frequency: 'Quarterly' },
-  { id: 'CMP-004', title: 'Supplier Requalification', type: 'requalification', entity: 'PrecisionMed Plastics (S-203)', dueDate: '2025-02-01', status: 'upcoming', daysRemaining: 38, lastCompleted: '2024-11-01', frequency: 'Quarterly' },
-  { id: 'CMP-005', title: 'Supplier Requalification', type: 'requalification', entity: 'TitanAlloy Medical (S-156)', dueDate: '2025-02-10', status: 'upcoming', daysRemaining: 47, lastCompleted: '2024-11-10', frequency: 'Quarterly' },
-  { id: 'CMP-006', title: 'Internal QMS Audit', type: 'audit', entity: 'Full ISO 13485 Scope', dueDate: '2025-03-15', status: 'upcoming', daysRemaining: 80, lastCompleted: '2024-09-15', frequency: 'Semi-annual' },
-  { id: 'CMP-007', title: 'Management Review', type: 'review', entity: 'Quality Management System', dueDate: '2025-01-30', status: 'upcoming', daysRemaining: 36, lastCompleted: '2024-07-30', frequency: 'Semi-annual' },
-  { id: 'CMP-008', title: 'ISO 13485 Surveillance Audit', type: 'audit', entity: 'External — Notified Body', dueDate: '2025-06-01', status: 'upcoming', daysRemaining: 158, lastCompleted: '2024-06-01', frequency: 'Annual' },
-  { id: 'CMP-009', title: 'CAPA Effectiveness Review', type: 'review', entity: 'CAPA-015 Seal Temperature', dueDate: '2025-01-15', status: 'completed', daysRemaining: 0, lastCompleted: '2024-12-20', frequency: 'Per CAPA' },
-  { id: 'CMP-010', title: 'ISO 9001 Recertification', type: 'recertification', entity: 'MedTech Components Ltd', dueDate: '2024-06-15', status: 'overdue', daysRemaining: -193, lastCompleted: '2021-06-15', frequency: 'Triennial' },
-];
-
 const statusConfig: Record<string, { label: string; className: string; icon: React.ComponentType<{ className?: string }> }> = {
   completed: { label: 'Completed', className: 'bg-status-success/10 text-status-success border-status-success/20', icon: CheckCircle },
   upcoming: { label: 'Upcoming', className: 'bg-status-info/10 text-status-info border-status-info/20', icon: Clock },
@@ -46,12 +33,112 @@ const statusConfig: Record<string, { label: string; className: string; icon: Rea
   'in-progress': { label: 'In Progress', className: 'bg-status-warning/10 text-status-warning border-status-warning/20', icon: Clock },
 };
 
+<<<<<<< HEAD
 const tierBadgeClass: Record<string, string> = {
   P0: "border-status-danger/40 text-status-danger bg-status-danger/10",
   P1: "border-status-warning/40 text-status-warning bg-status-warning/10",
   P2: "border-status-info/40 text-status-info bg-status-info/10",
   P3: "text-muted-foreground",
 };
+=======
+function daysRemaining(dateString?: string | null) {
+  if (!dateString) return null;
+  const target = new Date(dateString);
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.ceil((target.getTime() - Date.now()) / 86400000);
+}
+
+function buildComplianceItems({
+  suppliers,
+  capas,
+}: {
+  suppliers: any[];
+  capas: any[];
+}): ComplianceItem[] {
+  const items: ComplianceItem[] = [];
+
+  suppliers.forEach((supplier) => {
+    const requalDays = daysRemaining(supplier.requalification_due_date);
+    if (requalDays !== null) {
+      items.push({
+        id: `requal-${supplier.id}`,
+        title: "Supplier Requalification",
+        type: "requalification",
+        entity: `${supplier.name}${supplier.code ? ` (${supplier.code})` : ""}`,
+        dueDate: supplier.requalification_due_date,
+        status: requalDays < 0 ? "overdue" : "upcoming",
+        daysRemaining: requalDays,
+        lastCompleted: supplier.last_requalification_date || supplier.last_audit_date,
+        frequency: supplier.requalification_frequency_days ? `${supplier.requalification_frequency_days} days` : "Risk based",
+      });
+    }
+
+    const certDays = daysRemaining(supplier.certification_expiry);
+    if (certDays !== null) {
+      items.push({
+        id: `cert-${supplier.id}`,
+        title: "Supplier Certification Review",
+        type: "recertification",
+        entity: `${supplier.name}${supplier.certification_type ? ` — ${supplier.certification_type}` : ""}`,
+        dueDate: supplier.certification_expiry,
+        status: certDays < 0 ? "overdue" : "upcoming",
+        daysRemaining: certDays,
+        lastCompleted: supplier.approved_since || supplier.last_audit_date,
+        frequency: "Per certificate",
+      });
+    }
+
+    const auditDays = daysRemaining(supplier.next_audit_date);
+    if (auditDays !== null) {
+      items.push({
+        id: `audit-${supplier.id}`,
+        title: "Supplier Audit",
+        type: "audit",
+        entity: `${supplier.name}${supplier.code ? ` (${supplier.code})` : ""}`,
+        dueDate: supplier.next_audit_date,
+        status: auditDays < 0 ? "overdue" : "upcoming",
+        daysRemaining: auditDays,
+        lastCompleted: supplier.last_audit_date,
+        frequency: "Per supplier audit plan",
+      });
+    }
+  });
+
+  capas.forEach((capa) => {
+    const dueDays = daysRemaining(capa.due_date);
+    if (dueDays !== null) {
+      items.push({
+        id: `capa-${capa.id}`,
+        title: "CAPA Due Date",
+        type: "review",
+        entity: `${capa.capa_number || "CAPA"} — ${capa.title || "Untitled"}`,
+        dueDate: capa.due_date,
+        status: capa.status === "closed" ? "completed" : dueDays < 0 ? "overdue" : "upcoming",
+        daysRemaining: capa.status === "closed" ? 0 : dueDays,
+        lastCompleted: capa.updated_at?.split?.("T")?.[0],
+        frequency: "Per CAPA",
+      });
+    }
+
+    const effectivenessDays = daysRemaining(capa.effectiveness_due_date);
+    if (effectivenessDays !== null) {
+      items.push({
+        id: `capa-effectiveness-${capa.id}`,
+        title: "CAPA Effectiveness Review",
+        type: "review",
+        entity: `${capa.capa_number || "CAPA"} — ${capa.title || "Untitled"}`,
+        dueDate: capa.effectiveness_due_date,
+        status: capa.status === "closed" ? "completed" : effectivenessDays < 0 ? "overdue" : "upcoming",
+        daysRemaining: capa.status === "closed" ? 0 : effectivenessDays,
+        lastCompleted: capa.updated_at?.split?.("T")?.[0],
+        frequency: "Per CAPA",
+      });
+    }
+  });
+
+  return items.sort((a, b) => a.daysRemaining - b.daysRemaining);
+}
+>>>>>>> d31e8744 (fixed auth0)
 
 const CompliancePage = () => {
   const { data: suppliers = [] } = useSuppliers();
@@ -60,6 +147,7 @@ const CompliancePage = () => {
   const { data: inspections = [] } = useInspections();
   const { data: ncrs = [] } = useNCRs();
   const { data: capas = [] } = useCAPAs();
+<<<<<<< HEAD
   const complianceAgentMutation = useRunComplianceAgent();
   const { data: complianceRiskItems = [], isLoading: riskItemsLoading } = useComplianceAgentItems(80);
   const { data: complianceAgentRuns = [] } = useAgentRuns("compliance");
@@ -72,11 +160,16 @@ const CompliancePage = () => {
     return complianceRiskItems.filter((r: { run_batch_id?: string }) => r.run_batch_id === batch);
   }, [complianceRiskItems]);
 
+=======
+  const complianceItems = buildComplianceItems({ suppliers, capas });
+>>>>>>> d31e8744 (fixed auth0)
   const overdue = complianceItems.filter(c => c.status === 'overdue');
   const upcoming = complianceItems.filter(c => c.status === 'upcoming').sort((a, b) => a.daysRemaining - b.daysRemaining);
   const completed = complianceItems.filter(c => c.status === 'completed');
 
-  const overallScore = Math.round(((complianceItems.length - overdue.length) / complianceItems.length) * 100);
+  const overallScore = complianceItems.length
+    ? Math.round(((complianceItems.length - overdue.length) / complianceItems.length) * 100)
+    : 100;
   const qmsData = { suppliers, parts, lots, inspections, ncrs, capas };
 
   const documentCards = [

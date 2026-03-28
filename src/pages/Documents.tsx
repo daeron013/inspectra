@@ -23,6 +23,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { deleteDocument, getDocumentFileUrl, listDocuments } from "@/lib/api";
 import { generateDocumentAuditPdf } from "@/utils/documentAuditPdf";
 import { useToast } from "@/hooks/use-toast";
+import { AuditTrailPanel } from "@/components/AuditTrailPanel";
+import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
 
 const typeLabels: Record<string, string> = {
   supplier_certificate: 'Certificate',
@@ -79,16 +81,23 @@ function useDocuments() {
 }
 
 // ─── Document Viewer Dialog ───────────────────────────────
-function DocumentViewer({ doc, open, onClose }: { doc: any; open: boolean; onClose: () => void }) {
+function DocumentViewer({
+  doc,
+  open,
+  onClose,
+}: {
+  doc: any;
+  open: boolean;
+  onClose: () => void;
+}) {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
 
   const loadFile = async () => {
-    if (!doc?.id || !user?.id) return;
+    if (!doc?.id) return;
     setLoading(true);
     try {
-      const url = getDocumentFileUrl(doc.id, user.id);
+      const url = await getDocumentFileUrl(doc.id);
       setFileUrl(url);
     } catch {
       setFileUrl(null);
@@ -109,7 +118,13 @@ function DocumentViewer({ doc, open, onClose }: { doc: any; open: boolean; onClo
   const traceability = doc?.traceability_map || extracted.traceability || {};
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setFileUrl(null); } }}>
+    <Dialog open={open} onOpenChange={(o) => {
+      if (!o) {
+        if (fileUrl) URL.revokeObjectURL(fileUrl);
+        onClose();
+        setFileUrl(null);
+      }
+    }}>
       <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
@@ -216,6 +231,9 @@ function DocumentViewer({ doc, open, onClose }: { doc: any; open: boolean; onClo
               <ListField title="Missing Records" items={compliance.missing_records} />
               <ListField title="Upcoming Deadlines" items={(compliance.upcoming_deadlines || []).map((item: any) => `${item.item} — ${item.due_date} (${item.priority || "normal"})`)} />
             </DetailSection>
+
+            <AuditTrailPanel entityType="document" entityId={doc.id} />
+            <VersionHistoryPanel entityType="document" entityId={doc.id} />
           </div>
         </div>
       </DialogContent>
@@ -459,7 +477,11 @@ const DocumentsPage = () => {
 
       {/* Document viewer dialog */}
       {viewingDoc && (
-        <DocumentViewer doc={viewingDoc} open={!!viewingDoc} onClose={() => setViewingDoc(null)} />
+        <DocumentViewer
+          doc={viewingDoc}
+          open={!!viewingDoc}
+          onClose={() => setViewingDoc(null)}
+        />
       )}
 
       <AlertDialog open={!!deletingDoc} onOpenChange={(open) => { if (!open) setDeletingDoc(null); }}>

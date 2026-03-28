@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Shield, LogIn, UserPlus } from "lucide-react";
 
 const AuthPage = () => {
-  const { session, loading: authLoading, login, signup } = useAuth();
+  const { session, loading: authLoading, error, login, signup } = useAuth();
 
   if (authLoading) {
     return (
@@ -30,6 +30,11 @@ const AuthPage = () => {
         </div>
 
         <div className="glass-card p-6 space-y-4">
+          {error && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+              {error}
+            </div>
+          )}
           <Button type="button" onClick={() => void login()} className="w-full gap-2">
             <LogIn className="h-4 w-4" />
             Sign In

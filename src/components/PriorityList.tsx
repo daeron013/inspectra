@@ -1,7 +1,16 @@
-import { PriorityItem } from "@/data/mockData";
 import { AlertTriangle, AlertOctagon, Info, ChevronRight, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+
+export interface PriorityItem {
+  id: string;
+  title: string;
+  description: string;
+  risk: 'critical' | 'high' | 'medium' | 'low';
+  agent: string;
+  timestamp: string;
+  type: string;
+}
 
 const riskConfig: Record<string, { bg: string; text: string; icon: React.ComponentType<{ className?: string }> }> = {
   critical: { bg: 'bg-status-danger/10', text: 'text-status-danger', icon: AlertOctagon },
@@ -25,6 +34,11 @@ export function PriorityList({ items }: { items: PriorityItem[] }) {
         <p className="text-xs text-muted-foreground mt-0.5">Issues requiring immediate attention</p>
       </div>
       <div className="divide-y divide-border/30">
+        {items.length === 0 && (
+          <div className="px-5 py-6 text-sm text-muted-foreground">
+            No priority actions are currently derived from live QMS data.
+          </div>
+        )}
         {items.map((item) => {
           const config = riskConfig[item.risk];
           const RiskIcon = config.icon;

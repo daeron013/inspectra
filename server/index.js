@@ -7,6 +7,8 @@ import express from "express";
 import multer from "multer";
 
 import { generateAssistantResponse, streamAssistantText } from "./assistant.js";
+import { writeAuditLog } from "./audit.js";
+import { getRequestUser, requireAuth } from "./auth.js";
 import { getBucket, getDb, toObjectId } from "./db.js";
 import { detectTypeFromName, processDocument } from "./rag.js";
 import {
@@ -26,6 +28,7 @@ import {
   resolveAgentRun,
 } from "./agent-runs.js";
 import { runInspectionAgent } from "./agents/inspection-agent.js";
+<<<<<<< HEAD
 import { ensureCapaAgentIndexes, runCapaAgent, runCapaAgentOnNcr } from "./agents/capa-agent.js";
 import { ensureSupplierAgentIndexes, runSupplierAgent } from "./agents/supplier-agent.js";
 import {
@@ -33,27 +36,20 @@ import {
   listComplianceAgentRiskItems,
   runComplianceAgent,
 } from "./agents/compliance-agent.js";
+=======
+import { writeVersionSnapshot } from "./versioning.js";
+>>>>>>> d31e8744 (fixed auth0)
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
-const port = Number(process.env.PORT || 3001);
+const parsedPort = Number.parseInt(process.env.PORT || "", 10);
+const port = Number.isInteger(parsedPort) && parsedPort >= 0 && parsedPort < 65536 ? parsedPort : 3001;
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
-
-function requireUserId(req, res) {
-  const body = req.body && typeof req.body === "object" ? req.body : {};
-  const query = req.query && typeof req.query === "object" ? req.query : {};
-  const userId = body.userId || query.userId || req.header("x-user-id");
-  if (!userId) {
-    res.status(400).json({ error: "userId is required" });
-    return null;
-  }
-  return userId;
-}
 
 async function uploadBufferToGridFs(bucket, buffer, filename, metadata) {
   const stream = bucket.openUploadStream(filename, { metadata });
@@ -63,14 +59,70 @@ async function uploadBufferToGridFs(bucket, buffer, filename, metadata) {
   return stream.id;
 }
 
+async function writeFailureAuditLog(req, action, entityType, entityId, error, metadata = {}) {
+  if (!req.auth?.userId) return;
+
+  try {
+    const db = await getDb();
+    const actor = getRequestUser(req);
+    await writeAuditLog(db, {
+      actor,
+      action,
+      entityType,
+      entityId,
+      status: "failed",
+      metadata: {
+        ...metadata,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      req,
+    });
+  } catch (auditError) {
+    console.error("write failure audit log failed", auditError);
+  }
+}
+
 app.get("/api/health", async (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/assistant", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.get("/api/audit-logs", requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const actor = getRequestUser(req);
+    const query = {
+      actor_user_id: actor.id,
+      ...(typeof req.query.entityType === "string" ? { entity_type: req.query.entityType } : {}),
+      ...(typeof req.query.entityId === "string" ? { entity_id: req.query.entityId } : {}),
+    };
 
+    const logs = await db.collection("audit_logs").find(query).sort({ created_at: -1 }).limit(100).toArray();
+    res.json(logs.map((entry) => serializeDoc(entry)));
+  } catch (error) {
+    console.error("list audit logs failed", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to list audit logs" });
+  }
+});
+
+app.get("/api/version-snapshots", requireAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const actor = getRequestUser(req);
+    const query = {
+      owner_user_id: actor.id,
+      ...(typeof req.query.entityType === "string" ? { entity_type: req.query.entityType } : {}),
+      ...(typeof req.query.entityId === "string" ? { entity_id: req.query.entityId } : {}),
+    };
+
+    const snapshots = await db.collection("version_snapshots").find(query).sort({ created_at: -1 }).limit(50).toArray();
+    res.json(snapshots.map((entry) => serializeDoc(entry)));
+  } catch (error) {
+    console.error("list version snapshots failed", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to list version snapshots" });
+  }
+});
+
+app.post("/api/assistant", requireAuth, async (req, res) => {
   try {
     const { messages } = req.body;
     if (!Array.isArray(messages)) {
@@ -79,10 +131,12 @@ app.post("/api/assistant", async (req, res) => {
     }
 
     const db = await getDb();
-    const text = await generateAssistantResponse(db, userId, messages);
+    const actor = getRequestUser(req);
+    const text = await generateAssistantResponse(db, actor.id, messages);
     streamAssistantText(text, res);
   } catch (error) {
     console.error("assistant failed", error);
+    await writeFailureAuditLog(req, "assistant.failed", "assistant", null, error);
     if (!res.headersSent) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Assistant failed" });
     } else {
@@ -91,13 +145,11 @@ app.post("/api/assistant", async (req, res) => {
   }
 });
 
-app.get("/api/documents", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.get("/api/documents", requireAuth, async (req, res) => {
   try {
     const db = await getDb();
-    const documents = await listDocuments(db, userId);
+    const actor = getRequestUser(req);
+    const documents = await listDocuments(db, actor.id);
     res.json(documents);
   } catch (error) {
     console.error("list documents failed", error);
@@ -105,10 +157,7 @@ app.get("/api/documents", async (req, res) => {
   }
 });
 
-app.post("/api/documents/upload", upload.array("files"), async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.post("/api/documents/upload", requireAuth, upload.array("files"), async (req, res) => {
   if (!req.files?.length) {
     res.status(400).json({ error: "At least one file is required" });
     return;
@@ -119,18 +168,19 @@ app.post("/api/documents/upload", upload.array("files"), async (req, res) => {
     const bucket = await getBucket();
     const documents = db.collection("documents");
     const now = new Date().toISOString();
+    const actor = getRequestUser(req);
     const created = [];
 
     for (const file of req.files) {
-      const storageName = `${userId}/${Date.now()}_${file.originalname}`;
+      const storageName = `${actor.id}/${Date.now()}_${file.originalname}`;
       const gridfsFileId = await uploadBufferToGridFs(bucket, file.buffer, storageName, {
-        user_id: userId,
+        user_id: actor.id,
         original_name: file.originalname,
         mime_type: file.mimetype,
       });
 
       const doc = normalizeForMongo({
-        user_id: userId,
+        user_id: actor.id,
         title: file.originalname.replace(/\.[^/.]+$/, ""),
         document_type: detectTypeFromName(file.originalname),
         version: "1.0",
@@ -147,26 +197,55 @@ app.post("/api/documents/upload", upload.array("files"), async (req, res) => {
 
       const result = await documents.insertOne(doc);
       const saved = await documents.findOne({ _id: result.insertedId });
-      created.push(serializeDoc(saved));
+      const serialized = serializeDoc(saved);
+      created.push(serialized);
+
+      await writeVersionSnapshot(db, {
+        ownerUserId: actor.id,
+        actor,
+        entityType: "document",
+        entityId: serialized.id,
+        eventType: "created",
+        after: serialized,
+        metadata: {
+          source: "upload",
+          file_name: file.originalname,
+        },
+      });
+
+      await writeAuditLog(db, {
+        actor,
+        action: "document.uploaded",
+        entityType: "document",
+        entityId: serialized.id,
+        metadata: {
+          file_name: file.originalname,
+          mime_type: file.mimetype,
+          size: file.size,
+          document_type: serialized.document_type,
+        },
+        req,
+      });
     }
 
     res.status(201).json(created);
   } catch (error) {
     console.error("upload failed", error);
+    await writeFailureAuditLog(req, "document.uploaded", "document", null, error, {
+      files: Array.isArray(req.files) ? req.files.map((file) => file.originalname) : [],
+    });
     res.status(500).json({ error: error instanceof Error ? error.message : "Upload failed" });
   }
 });
 
-app.post("/api/documents/:id/process", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.post("/api/documents/:id/process", requireAuth, async (req, res) => {
   try {
     const db = await getDb();
     const bucket = await getBucket();
+    const actor = getRequestUser(req);
     const document = await db.collection("documents").findOne({
       _id: toObjectId(req.params.id),
-      user_id: userId,
+      user_id: actor.id,
     });
 
     if (!document) {
@@ -174,24 +253,55 @@ app.post("/api/documents/:id/process", async (req, res) => {
       return;
     }
 
+    const before = serializeDoc(document);
     const result = await processDocument(db, bucket, document);
+    const updatedDocument = await db.collection("documents").findOne({
+      _id: document._id,
+      user_id: actor.id,
+    });
+    const after = updatedDocument ? serializeDoc(updatedDocument) : before;
+
+    await writeVersionSnapshot(db, {
+      ownerUserId: actor.id,
+      actor,
+      entityType: "document",
+      entityId: document._id.toString(),
+      eventType: "processed",
+      before,
+      after,
+      metadata: {
+        document_type: result.document_type,
+        created_records: result.created_records || {},
+      },
+    });
+
+    await writeAuditLog(db, {
+      actor,
+      action: "document.processed",
+      entityType: "document",
+      entityId: document._id.toString(),
+      metadata: {
+        document_type: result.document_type,
+        created_records: result.created_records || {},
+      },
+      req,
+    });
     res.json(result);
   } catch (error) {
     console.error("process document failed", error);
+    await writeFailureAuditLog(req, "document.processed", "document", req.params.id, error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Processing failed" });
   }
 });
 
-app.get("/api/documents/:id/file", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.get("/api/documents/:id/file", requireAuth, async (req, res) => {
   try {
     const db = await getDb();
     const bucket = await getBucket();
+    const actor = getRequestUser(req);
     const document = await db.collection("documents").findOne({
       _id: toObjectId(req.params.id),
-      user_id: userId,
+      user_id: actor.id,
     });
 
     if (!document) {
@@ -202,25 +312,36 @@ app.get("/api/documents/:id/file", async (req, res) => {
     res.setHeader("Content-Type", document.mime_type || "application/octet-stream");
     res.setHeader("Content-Disposition", `inline; filename="${document.file_name || `${crypto.randomUUID()}.bin`}"`);
 
+    await writeAuditLog(db, {
+      actor,
+      action: "document.downloaded",
+      entityType: "document",
+      entityId: document._id.toString(),
+      metadata: {
+        file_name: document.file_name,
+        mime_type: document.mime_type,
+      },
+      req,
+    });
+
     bucket.openDownloadStream(document.gridfs_file_id).pipe(res);
   } catch (error) {
     console.error("download failed", error);
+    await writeFailureAuditLog(req, "document.downloaded", "document", req.params.id, error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Download failed" });
   }
 });
 
-app.delete("/api/documents/:id", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.delete("/api/documents/:id", requireAuth, async (req, res) => {
   try {
     const db = await getDb();
     const bucket = await getBucket();
     const documents = db.collection("documents");
     const documentId = toObjectId(req.params.id);
+    const actor = getRequestUser(req);
     const document = await documents.findOne({
       _id: documentId,
-      user_id: userId,
+      user_id: actor.id,
     });
 
     if (!document) {
@@ -230,7 +351,7 @@ app.delete("/api/documents/:id", async (req, res) => {
 
     await db.collection("document_chunks").deleteMany({
       document_id: documentId,
-      user_id: userId,
+      user_id: actor.id,
     });
 
     if (document.gridfs_file_id) {
@@ -246,61 +367,143 @@ app.delete("/api/documents/:id", async (req, res) => {
 
     await documents.deleteOne({
       _id: documentId,
-      user_id: userId,
+      user_id: actor.id,
+    });
+
+    await writeVersionSnapshot(db, {
+      ownerUserId: actor.id,
+      actor,
+      entityType: "document",
+      entityId: documentId.toString(),
+      eventType: "deleted",
+      before: serializeDoc(document),
+      metadata: {
+        title: document.title,
+        file_name: document.file_name,
+      },
+    });
+
+    await writeAuditLog(db, {
+      actor,
+      action: "document.deleted",
+      entityType: "document",
+      entityId: documentId.toString(),
+      metadata: {
+        title: document.title,
+        file_name: document.file_name,
+      },
+      req,
     });
 
     res.status(204).end();
   } catch (error) {
     console.error("delete document failed", error);
+    await writeFailureAuditLog(req, "document.deleted", "document", req.params.id, error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to delete document" });
   }
 });
 
-app.get("/api/qms/:entity", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.get("/api/qms/:entity", requireAuth, async (req, res) => {
   try {
     const db = await getDb();
-    const records = await listEntity(db, req.params.entity, userId);
+    const actor = getRequestUser(req);
+    const records = await listEntity(db, req.params.entity, actor.id);
     res.json(records);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to list records" });
   }
 });
 
-app.post("/api/qms/:entity", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.post("/api/qms/:entity", requireAuth, async (req, res) => {
   try {
     const db = await getDb();
-    const created = await createEntity(db, req.params.entity, userId, req.body);
+    const actor = getRequestUser(req);
+    const created = await createEntity(db, req.params.entity, actor.id, req.body);
+    await writeVersionSnapshot(db, {
+      ownerUserId: actor.id,
+      actor,
+      entityType: req.params.entity,
+      entityId: created.id,
+      eventType: "created",
+      after: created,
+    });
+    await writeAuditLog(db, {
+      actor,
+      action: `${req.params.entity}.created`,
+      entityType: req.params.entity,
+      entityId: created.id || null,
+      metadata: { record: created },
+      req,
+    });
     res.status(201).json(created);
   } catch (error) {
+    await writeFailureAuditLog(req, `${req.params.entity}.created`, req.params.entity, null, error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create record" });
   }
 });
 
-app.patch("/api/qms/:entity/:id", async (req, res) => {
+app.patch("/api/qms/:entity/:id", requireAuth, async (req, res) => {
   try {
     const db = await getDb();
-    const updated = await updateEntity(db, req.params.entity, req.params.id, req.body);
+    const actor = getRequestUser(req);
+    const beforeRecord = await db.collection(req.params.entity).findOne({
+      _id: toObjectId(req.params.id),
+      user_id: actor.id,
+    });
+    const updated = await updateEntity(db, req.params.entity, req.params.id, actor.id, req.body);
+    await writeVersionSnapshot(db, {
+      ownerUserId: actor.id,
+      actor,
+      entityType: req.params.entity,
+      entityId: req.params.id,
+      eventType: "updated",
+      before: beforeRecord ? serializeDoc(beforeRecord) : null,
+      after: updated,
+      metadata: { changed_fields: Object.keys(req.body || {}) },
+    });
+    await writeAuditLog(db, {
+      actor,
+      action: `${req.params.entity}.updated`,
+      entityType: req.params.entity,
+      entityId: req.params.id,
+      metadata: { changes: req.body, record: updated },
+      req,
+    });
     res.json(updated);
   } catch (error) {
+    await writeFailureAuditLog(req, `${req.params.entity}.updated`, req.params.entity, req.params.id, error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update record" });
   }
 });
 
-app.delete("/api/qms/:entity/:id", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.delete("/api/qms/:entity/:id", requireAuth, async (req, res) => {
   try {
     const db = await getDb();
-    await deleteEntity(db, req.params.entity, req.params.id, userId);
+    const actor = getRequestUser(req);
+    const beforeRecord = await db.collection(req.params.entity).findOne({
+      _id: toObjectId(req.params.id),
+      user_id: actor.id,
+    });
+    await deleteEntity(db, req.params.entity, req.params.id, actor.id);
+    await writeVersionSnapshot(db, {
+      ownerUserId: actor.id,
+      actor,
+      entityType: req.params.entity,
+      entityId: req.params.id,
+      eventType: "deleted",
+      before: beforeRecord ? serializeDoc(beforeRecord) : null,
+    });
+    await writeAuditLog(db, {
+      actor,
+      action: `${req.params.entity}.deleted`,
+      entityType: req.params.entity,
+      entityId: req.params.id,
+      metadata: {},
+      req,
+    });
     res.status(204).end();
   } catch (error) {
+    await writeFailureAuditLog(req, `${req.params.entity}.deleted`, req.params.entity, req.params.id, error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to delete record" });
   }
 });

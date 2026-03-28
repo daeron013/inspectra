@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AuditTrailPanel } from "@/components/AuditTrailPanel";
 
 function NCRFormDialog({ open, onOpenChange, onSubmit, lots, parts, suppliers }: {
   open: boolean; onOpenChange: (o: boolean) => void;
@@ -182,6 +183,7 @@ const NCRsPage = () => {
                                   </div>
                                 </div>
                               )}
+                              <AuditTrailPanel entityType="ncrs" entityId={ncr.id} />
                               <div className="flex gap-2">
                                 <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: ncr.id, status: 'closed' })}>Close NCR</Button>
                                 <Button size="sm" variant="outline" className="text-status-danger" onClick={() => deleteMutation.mutate(ncr.id)}>Delete</Button>

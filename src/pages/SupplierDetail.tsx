@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ShieldCheck, ShieldAlert, ShieldX, Package, Search, AlertTriangle, Brain, Sparkles, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AuditTrailPanel } from "@/components/AuditTrailPanel";
+import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
 
 const statusConfig: Record<string, { label: string; className: string; icon: React.ComponentType<{ className?: string }> }> = {
   approved: { label: 'Approved', className: 'bg-status-success/10 text-status-success border-status-success/20', icon: ShieldCheck },
@@ -194,6 +196,11 @@ const SupplierDetailPage = () => {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <AuditTrailPanel entityType="suppliers" entityId={supplier.id} className="glass-card" />
+        <VersionHistoryPanel entityType="suppliers" entityId={supplier.id} className="glass-card" />
       </div>
 
       {/* Tabs for linked records */}

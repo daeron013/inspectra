@@ -4,6 +4,16 @@ import { useAgentRuns, useResolveAgentRun } from "@/hooks/useQMS";
 import { Package, Search, Brain, Clock, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+type AgentRun = {
+  id: string;
+  agent: "supplier" | "inspection" | "capa" | "compliance";
+  agentLabel: string;
+  action: string;
+  detail: string;
+  timestamp: string;
+  result?: string;
+};
+
 const agentConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string; description: string; color: string }> = {
   supplier: {
     icon: Package,
@@ -50,6 +60,109 @@ function groupByAgentType(runs: any[]): Record<string, any[]> {
     grouped[key].push(run);
   }
   return grouped;
+}
+
+function displayTimestamp(value?: string | null) {
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function buildAgentRuns({
+  suppliers,
+  lots,
+  ncrs,
+  capas,
+  documents,
+}: {
+  suppliers: any[];
+  lots: any[];
+  ncrs: any[];
+  capas: any[];
+  documents: any[];
+}): AgentRun[] {
+  const runs: AgentRun[] = [];
+
+  suppliers.forEach((supplier) => {
+    if (supplier.risk_level === "critical" || supplier.risk_level === "high" || Number(supplier.defect_rate) > 2) {
+      runs.push({
+        id: `supplier-${supplier.id}`,
+        agent: "supplier",
+        agentLabel: "Supplier Agent",
+        action: "Supplier risk scoring refresh",
+        detail: `${supplier.name} is currently ${supplier.risk_level || "unknown"} risk with defect rate ${supplier.defect_rate ?? 0}% and status ${supplier.status || "unknown"}.`,
+        timestamp: displayTimestamp(supplier.updated_at || supplier.requalification_due_date || supplier.last_audit_date),
+        result: supplier.status ? `Status → ${supplier.status}` : undefined,
+      });
+    }
+  });
+
+  lots.forEach((lot) => {
+    if (lot.inspection_status !== "passed") {
+      runs.push({
+        id: `lot-${lot.id}`,
+        agent: "inspection",
+        agentLabel: "Inspection Agent",
+        action: "Inspection follow-up required",
+        detail: `Lot ${lot.lot_number} for ${(lot as any).parts?.name || "unknown part"} is still marked ${lot.inspection_status || "pending"} with status ${lot.status || "unknown"}.`,
+        timestamp: displayTimestamp(lot.updated_at || lot.received_date),
+        result: `Inspection ${lot.inspection_status || "pending"}`,
+      });
+    }
+  });
+
+  ncrs.forEach((ncr) => {
+    if (ncr.status !== "closed") {
+      runs.push({
+        id: `ncr-${ncr.id}`,
+        agent: "inspection",
+        agentLabel: "Inspection Agent",
+        action: "Nonconformance opened or still active",
+        detail: `${ncr.ncr_number} remains ${ncr.status}. Severity: ${ncr.severity || "unknown"}. Disposition: ${ncr.disposition || "pending"}.`,
+        timestamp: displayTimestamp(ncr.updated_at || ncr.detected_date || ncr.created_at),
+        result: ncr.disposition ? `Disposition → ${ncr.disposition}` : "Open NCR",
+      });
+    }
+  });
+
+  capas.forEach((capa) => {
+    if (capa.status !== "closed") {
+      runs.push({
+        id: `capa-${capa.id}`,
+        agent: "capa",
+        agentLabel: "CAPA Agent",
+        action: "CAPA tracking in progress",
+        detail: `${capa.capa_number} is ${capa.status}. Priority: ${capa.priority || "medium"}. Root cause: ${capa.root_cause || "not yet documented"}.`,
+        timestamp: displayTimestamp(capa.updated_at || capa.due_date || capa.created_at),
+        result: capa.due_date ? `Due ${capa.due_date}` : "CAPA active",
+      });
+    }
+  });
+
+  documents.forEach((document) => {
+    const complianceFlags = document.compliance_signals?.audit_readiness_flags || [];
+    const missingRecords = document.compliance_signals?.missing_records || [];
+    if (complianceFlags.length > 0 || missingRecords.length > 0) {
+      runs.push({
+        id: `document-${document.id}`,
+        agent: "compliance",
+        agentLabel: "Compliance Agent",
+        action: "Document compliance scan updated",
+        detail: `${document.title || document.file_name || "Document"} has ${complianceFlags.length} audit flags and ${missingRecords.length} missing-record findings.`,
+        timestamp: displayTimestamp(document.updated_at || document.created_at),
+        result: document.status ? `Document ${document.status}` : undefined,
+      });
+    }
+  });
+
+  return runs
+    .sort((a, b) => {
+      const aTime = new Date(a.timestamp).getTime();
+      const bTime = new Date(b.timestamp).getTime();
+      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+    })
+    .slice(0, 40);
 }
 
 const AgentsPage = () => {

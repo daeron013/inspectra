@@ -245,7 +245,7 @@ export async function createEntity(db, entity, userId, payload) {
   return serializeDoc(created);
 }
 
-export async function updateEntity(db, entity, id, payload) {
+export async function updateEntity(db, entity, id, userId, payload) {
   requireEntity(entity);
 
   const updateDoc = normalizeForMongo({
@@ -258,11 +258,17 @@ export async function updateEntity(db, entity, id, payload) {
   delete updateDoc.created_at;
 
   await db.collection(entity).updateOne(
-    { _id: new ObjectId(id) },
+    {
+      _id: new ObjectId(id),
+      ...(entity === "device_lots" ? {} : { user_id: userId }),
+    },
     { $set: updateDoc },
   );
 
-  const updated = await db.collection(entity).findOne({ _id: new ObjectId(id) });
+  const updated = await db.collection(entity).findOne({
+    _id: new ObjectId(id),
+    ...(entity === "device_lots" ? {} : { user_id: userId }),
+  });
   return serializeDoc(updated);
 }
 

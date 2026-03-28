@@ -1,6 +1,7 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 import { Auth0Provider, AppState, useAuth0 } from "@auth0/auth0-react";
 import { useNavigate } from "react-router-dom";
+import { setApiAccessTokenProvider } from "@/lib/api";
 
 type AppUser = {
   id: string;
@@ -14,6 +15,8 @@ type AuthContextType = {
   user: AppUser | null;
   loading: boolean;
   isAuthenticated: boolean;
+  error: string | null;
+  getAccessToken: () => Promise<string | null>;
   signOut: () => Promise<void>;
   login: () => Promise<void>;
   signup: () => Promise<void>;
@@ -24,18 +27,23 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   isAuthenticated: false,
+  error: null,
+  getAccessToken: async () => null,
   signOut: async () => {},
   login: async () => {},
   signup: async () => {},
 });
 
 function Auth0Bridge({ children }: { children: ReactNode }) {
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
   const {
     isAuthenticated,
     isLoading,
     user,
+    error,
     loginWithRedirect,
     logout,
+    getAccessTokenSilently,
   } = useAuth0();
   const auth0Origin = `${window.location.origin}/`;
 
@@ -48,11 +56,45 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
       }
     : null;
 
+  useEffect(() => {
+    setApiAccessTokenProvider(async () => {
+      if (!isAuthenticated) return null;
+      try {
+        return await getAccessTokenSilently({
+          authorizationParams: {
+            ...(audience ? { audience } : {}),
+          },
+          cacheMode: "off",
+        });
+      } catch {
+        return null;
+      }
+    });
+
+    return () => {
+      setApiAccessTokenProvider(null);
+    };
+  }, [audience, getAccessTokenSilently, isAuthenticated]);
+
   const value: AuthContextType = {
     session: appUser ? { user: appUser } : null,
     user: appUser,
     loading: isLoading,
     isAuthenticated,
+    error: error?.message || null,
+    getAccessToken: async () => {
+      if (!isAuthenticated) return null;
+      try {
+        return await getAccessTokenSilently({
+          authorizationParams: {
+            ...(audience ? { audience } : {}),
+          },
+          cacheMode: "off",
+        });
+      } catch {
+        return null;
+      }
+    },
     signOut: async () => {
       logout({
         logoutParams: {
@@ -63,12 +105,18 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
     login: async () => {
       await loginWithRedirect({
         appState: { returnTo: "/" },
+        authorizationParams: {
+          redirect_uri: auth0Origin,
+          ...(audience ? { audience } : {}),
+        },
       });
     },
     signup: async () => {
       await loginWithRedirect({
         appState: { returnTo: "/" },
         authorizationParams: {
+          redirect_uri: auth0Origin,
+          ...(audience ? { audience } : {}),
           screen_hint: "signup",
         },
       });

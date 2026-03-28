@@ -1,16 +1,6 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const data = [
-  { month: 'Jul', ncrs: 2, defects: 1.1, capas: 0 },
-  { month: 'Aug', ncrs: 3, defects: 1.4, capas: 1 },
-  { month: 'Sep', ncrs: 1, defects: 0.8, capas: 0 },
-  { month: 'Oct', ncrs: 4, defects: 2.1, capas: 1 },
-  { month: 'Nov', ncrs: 5, defects: 3.2, capas: 2 },
-  { month: 'Dec', ncrs: 7, defects: 4.8, capas: 3 },
-  { month: 'Jan', ncrs: 7, defects: 6.2, capas: 4 },
-];
-
-export function ComplianceChart() {
+export function ComplianceChart({ data }: { data: Array<{ month: string; ncrs: number; defects: number; capas: number }> }) {
   return (
     <div className="glass-card rounded-xl">
       <div className="border-b border-border/50 px-5 py-4">
@@ -18,6 +8,11 @@ export function ComplianceChart() {
         <p className="text-xs text-muted-foreground mt-0.5">NCRs, defect rate, and CAPAs over time</p>
       </div>
       <div className="p-4">
+        {data.length === 0 ? (
+          <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">
+            Not enough live history yet to chart a trend.
+          </div>
+        ) : (
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
             <defs>
@@ -45,6 +40,7 @@ export function ComplianceChart() {
             <Area type="monotone" dataKey="defects" stroke="hsl(0, 72%, 51%)" fill="url(#defects)" strokeWidth={2} name="Defect %" />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

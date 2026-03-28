@@ -1,5 +1,14 @@
-import { AgentRun } from "@/data/mockData";
 import { Package, Search, Brain, Clock } from "lucide-react";
+
+type AgentRun = {
+  id: string;
+  agent: 'supplier' | 'inspection' | 'capa' | 'compliance';
+  agentLabel: string;
+  action: string;
+  detail: string;
+  timestamp: string;
+  result?: string;
+};
 
 const agentConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
   supplier: { icon: Package, color: 'bg-agent-supplier/15 text-agent-supplier border-agent-supplier/25' },
