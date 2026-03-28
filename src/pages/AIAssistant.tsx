@@ -11,10 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useSuppliers, useParts } from "@/hooks/useQMS";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAuth } from "@/hooks/useAuth";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
+const CHAT_URL = `${import.meta.env.VITE_API_BASE_URL || ""}/api/assistant`;
 
 // ─── PDF Export ───────────────────────────────────────────
 async function exportResponseAsPDF(content: string, index: number) {
@@ -261,6 +262,7 @@ const AIAssistantPage = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const initialPromptSent = useRef(false);
+  const { user } = useAuth();
 
   const { data: suppliers = [] } = useSuppliers();
   const { data: parts = [] } = useParts();
@@ -283,9 +285,8 @@ const AIAssistantPage = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: allMessages }),
+        body: JSON.stringify({ messages: allMessages, userId: user?.id }),
       });
 
       if (!resp.ok) {
@@ -335,7 +336,7 @@ const AIAssistantPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, toast]);
+  }, [messages, isLoading, toast, user?.id]);
 
   useEffect(() => {
     const prompt = searchParams.get("prompt");

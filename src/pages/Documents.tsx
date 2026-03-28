@@ -9,8 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSuppliers, useParts } from "@/hooks/useQMS";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { getDocumentFileUrl, listDocuments } from "@/lib/api";
 
 const typeLabels: Record<string, string> = {
   supplier_certificate: 'Certificate',
@@ -31,36 +31,22 @@ function useDocuments() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["documents"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("documents").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: async () => listDocuments(user!.id),
     enabled: !!user,
   });
-}
-
-function getFileUrl(filePath: string) {
-  const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
-  return data.publicUrl;
-}
-
-async function getSignedUrl(filePath: string) {
-  const { data, error } = await supabase.storage.from("documents").createSignedUrl(filePath, 3600);
-  if (error) throw error;
-  return data.signedUrl;
 }
 
 // ─── Document Viewer Dialog ───────────────────────────────
 function DocumentViewer({ doc, open, onClose }: { doc: any; open: boolean; onClose: () => void }) {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
 
   const loadFile = async () => {
-    if (!doc?.file_path) return;
+    if (!doc?.id || !user?.id) return;
     setLoading(true);
     try {
-      const url = await getSignedUrl(doc.file_path);
+      const url = getDocumentFileUrl(doc.id, user.id);
       setFileUrl(url);
     } catch {
       setFileUrl(null);
@@ -70,7 +56,7 @@ function DocumentViewer({ doc, open, onClose }: { doc: any; open: boolean; onClo
   };
 
   // Load when opened
-  if (open && !fileUrl && !loading && doc?.file_path) {
+  if (open && !fileUrl && !loading && doc?.id) {
     loadFile();
   }
 
