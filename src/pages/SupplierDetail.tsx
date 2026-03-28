@@ -99,6 +99,25 @@ const SupplierDetailPage = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="glass-card rounded-xl p-4">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Audit Score</div>
+          <span className="text-lg font-bold text-foreground">{supplier.audit_score ?? '—'}</span>
+        </div>
+        <div className="glass-card rounded-xl p-4">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Requalification Due</div>
+          <span className="text-sm font-semibold text-foreground">{supplier.requalification_due_date || '—'}</span>
+        </div>
+        <div className="glass-card rounded-xl p-4">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Quality Agreement</div>
+          <span className="text-sm font-semibold text-foreground">{supplier.quality_agreement_signed ? 'Signed' : 'Unknown'}</span>
+        </div>
+        <div className="glass-card rounded-xl p-4">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Supplier Type</div>
+          <span className="text-sm font-semibold text-foreground">{supplier.supplier_type || '—'}</span>
+        </div>
+      </div>
+
       {/* Contact & audit info */}
       <div className="glass-card rounded-xl p-5">
         <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Contact & Audit Details</div>
@@ -107,8 +126,39 @@ const SupplierDetailPage = () => {
           <div><span className="text-muted-foreground">Phone:</span> <span className="font-medium">{supplier.contact_phone || '—'}</span></div>
           <div><span className="text-muted-foreground">Last Audit:</span> <span className="font-medium">{supplier.last_audit_date || '—'}</span></div>
           <div><span className="text-muted-foreground">Next Audit:</span> <span className="font-medium">{supplier.next_audit_date || '—'}</span></div>
+          <div><span className="text-muted-foreground">Approved Since:</span> <span className="font-medium">{supplier.approved_since || '—'}</span></div>
+          <div><span className="text-muted-foreground">Last Requalification:</span> <span className="font-medium">{supplier.last_requalification_date || '—'}</span></div>
+          <div><span className="text-muted-foreground">Requalification Cadence:</span> <span className="font-medium">{supplier.requalification_frequency_days ? `${supplier.requalification_frequency_days} days` : '—'}</span></div>
+          <div><span className="text-muted-foreground">Country:</span> <span className="font-medium">{supplier.country || '—'}</span></div>
         </div>
         {supplier.address && <div className="text-xs mt-2"><span className="text-muted-foreground">Address:</span> <span className="font-medium">{supplier.address}</span></div>}
+        {Array.isArray(supplier.certifications) && supplier.certifications.length > 0 && (
+          <div className="mt-4">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Certification History</div>
+            <div className="space-y-2 text-xs">
+              {supplier.certifications.map((cert: any, index: number) => (
+                <div key={`cert-${index}`} className="rounded-md border border-border/40 p-3">
+                  <div className="font-medium">{cert.name || 'Certification'}</div>
+                  <div className="text-muted-foreground">{[cert.certificate_number, cert.issuing_body, cert.status].filter(Boolean).join(' · ') || '—'}</div>
+                  <div className="text-muted-foreground">{[cert.effective_date, cert.expiry_date].filter(Boolean).join(' to ') || '—'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {Array.isArray(supplier.audit_findings) && supplier.audit_findings.length > 0 && (
+          <div className="mt-4">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Audit Findings</div>
+            <div className="space-y-2 text-xs">
+              {supplier.audit_findings.map((finding: any, index: number) => (
+                <div key={`finding-${index}`} className="rounded-md border border-border/40 p-3">
+                  <div className="font-medium">{finding.finding || 'Finding'}</div>
+                  <div className="text-muted-foreground">{[finding.severity, finding.status].filter(Boolean).join(' · ') || '—'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs for linked records */}

@@ -11,6 +11,7 @@ import { useSuppliers, useParts } from "@/hooks/useQMS";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { getDocumentFileUrl, listDocuments } from "@/lib/api";
+import { generateDocumentAuditPdf } from "@/utils/documentAuditPdf";
 
 const typeLabels: Record<string, string> = {
   supplier_certificate: 'Certificate',
@@ -26,6 +27,36 @@ const statusClasses: Record<string, string> = {
   processed: 'bg-status-success/10 text-status-success border-status-success/20',
   flagged: 'bg-status-danger/10 text-status-danger border-status-danger/20',
 };
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border/50 bg-accent/20 p-4">
+      <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">{title}</div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[140px_1fr] gap-3 text-xs">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="font-medium break-words">{value || "—"}</div>
+    </div>
+  );
+}
+
+function ListField({ title, items }: { title: string; items?: string[] }) {
+  const values = items && items.length > 0 ? items : ["—"];
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{title}</div>
+      {values.map((item, index) => (
+        <div key={`${title}-${index}`} className="text-xs">• {item}</div>
+      ))}
+    </div>
+  );
+}
 
 function useDocuments() {
   const { user } = useAuth();
@@ -62,10 +93,13 @@ function DocumentViewer({ doc, open, onClose }: { doc: any; open: boolean; onClo
 
   const isPdf = doc?.file_name?.toLowerCase().endsWith('.pdf');
   const isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(doc?.file_name || '');
+  const extracted = doc?.extracted_data || {};
+  const compliance = doc?.compliance_signals || extracted.compliance || {};
+  const traceability = doc?.traceability_map || extracted.traceability || {};
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setFileUrl(null); } }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
             <FileText className="h-4 w-4" />
@@ -81,35 +115,97 @@ function DocumentViewer({ doc, open, onClose }: { doc: any; open: boolean; onClo
               <Download className="h-3 w-3" /> Download
             </a>
           )}
+          <button onClick={() => generateDocumentAuditPdf(doc)} className="flex items-center gap-1 text-primary hover:underline">
+            <Printer className="h-3 w-3" /> Export audit PDF
+          </button>
         </div>
-        <div className="flex-1 min-h-[400px] rounded-lg border border-border overflow-hidden bg-accent/20">
-          {loading && (
-            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Loading document...</div>
-          )}
-          {!loading && !fileUrl && !doc?.file_path && (
-            <div className="flex flex-col items-center justify-center h-full text-center gap-2 p-8">
-              <FileText className="h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No file attached to this document record.</p>
-              {doc?.notes && <p className="text-xs text-muted-foreground mt-2">{doc.notes}</p>}
-            </div>
-          )}
-          {!loading && fileUrl && isPdf && (
-            <iframe src={fileUrl} className="w-full h-full min-h-[500px]" title={doc?.title} />
-          )}
-          {!loading && fileUrl && isImage && (
-            <div className="flex items-center justify-center h-full p-4">
-              <img src={fileUrl} alt={doc?.title} className="max-w-full max-h-full object-contain rounded" />
-            </div>
-          )}
-          {!loading && fileUrl && !isPdf && !isImage && (
-            <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8">
-              <FileText className="h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">Preview not available for this file type.</p>
-              <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" className="gap-1"><ExternalLink className="h-3 w-3" /> Open in new tab</Button>
-              </a>
-            </div>
-          )}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.95fr)] gap-4 overflow-y-auto">
+          <div className="min-h-[400px] rounded-lg border border-border overflow-hidden bg-accent/20">
+            {loading && (
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Loading document...</div>
+            )}
+            {!loading && !fileUrl && !doc?.file_path && (
+              <div className="flex flex-col items-center justify-center h-full text-center gap-2 p-8">
+                <FileText className="h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">No file attached to this document record.</p>
+                {doc?.notes && <p className="text-xs text-muted-foreground mt-2">{doc.notes}</p>}
+              </div>
+            )}
+            {!loading && fileUrl && isPdf && (
+              <iframe src={fileUrl} className="w-full h-full min-h-[500px]" title={doc?.title} />
+            )}
+            {!loading && fileUrl && isImage && (
+              <div className="flex items-center justify-center h-full p-4">
+                <img src={fileUrl} alt={doc?.title} className="max-w-full max-h-full object-contain rounded" />
+              </div>
+            )}
+            {!loading && fileUrl && !isPdf && !isImage && (
+              <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8">
+                <FileText className="h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Preview not available for this file type.</p>
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" className="gap-1"><ExternalLink className="h-3 w-3" /> Open in new tab</Button>
+                </a>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4 pb-2">
+            <DetailSection title="Document Control">
+              <Field label="Document Number" value={doc.document_number || extracted.document_control?.document_number} />
+              <Field label="Version / Revision" value={`${doc.version || "1.0"} / ${doc.revision || extracted.document_control?.revision || "—"}`} />
+              <Field label="Effective Date" value={doc.effective_date || extracted.document_control?.effective_date} />
+              <Field label="Approval Date" value={doc.approval_date || extracted.document_control?.approval_date} />
+              <Field label="Owner" value={doc.document_owner || extracted.document_control?.document_owner} />
+              <Field label="Approvers" value={(doc.approvers || extracted.document_control?.approvers || []).join(", ")} />
+              <Field label="Summary" value={doc.notes || extracted.summary} />
+            </DetailSection>
+
+            <DetailSection title="Supplier Qualification">
+              <Field label="Supplier" value={extracted.supplier?.name} />
+              <Field label="Status / Risk" value={`${extracted.supplier?.status || "—"} / ${extracted.supplier?.risk_level || "—"}`} />
+              <Field label="Supplier Type" value={extracted.supplier?.supplier_type} />
+              <Field label="Certification" value={extracted.supplier?.certification_type} />
+              <Field label="Audit Score" value={extracted.supplier?.audit_score} />
+              <Field label="Requalification Due" value={extracted.supplier?.requalification_due_date} />
+              <Field label="Quality Agreement" value={extracted.supplier?.quality_agreement_signed ? "Signed" : "Unknown"} />
+            </DetailSection>
+
+            <DetailSection title="Traceability">
+              <Field label="Part / Drawing" value={`${extracted.part?.part_number || "—"} / ${extracted.part?.drawing_number || "—"}`} />
+              <Field label="Lot / Batch" value={`${extracted.lot?.lot_number || "—"} / ${extracted.lot?.batch_number || traceability.supplier_batch || "—"}`} />
+              <Field label="Receiving Record" value={traceability.receiving_record} />
+              <Field label="CoC / CoA" value={`${extracted.lot?.certificate_of_conformance || "—"} / ${extracted.lot?.certificate_of_analysis || "—"}`} />
+              <Field label="Finished Devices" value={(traceability.finished_device_ids || []).join(", ")} />
+              <Field label="Affected Products" value={(traceability.affected_products || []).join(", ")} />
+            </DetailSection>
+
+            <DetailSection title="Inspection and Quality">
+              <Field label="Inspection Type" value={extracted.inspection?.inspection_type} />
+              <Field label="Inspector" value={extracted.inspection?.inspector_name} />
+              <Field label="Sampling / AQL" value={`${extracted.inspection?.sampling_plan || "—"} / ${extracted.inspection?.aql_level || "—"}`} />
+              <Field label="Sample / Defects / Rejected" value={`${extracted.inspection?.sample_size ?? "—"} / ${extracted.inspection?.defects_found ?? "—"} / ${extracted.inspection?.rejected_units ?? "—"}`} />
+              <Field label="Acceptance Criteria" value={extracted.inspection?.acceptance_criteria} />
+            </DetailSection>
+
+            <DetailSection title="NCR and CAPA">
+              <Field label="NCR" value={extracted.ncr?.title} />
+              <Field label="Disposition" value={extracted.ncr?.disposition} />
+              <Field label="Root Cause" value={extracted.ncr?.root_cause || extracted.capa?.root_cause} />
+              <Field label="Containment" value={extracted.ncr?.containment_action} />
+              <Field label="CAPA" value={extracted.capa?.title} />
+              <Field label="Action Plan" value={extracted.capa?.action_plan} />
+              <Field label="Effectiveness Check" value={extracted.capa?.effectiveness_check} />
+            </DetailSection>
+
+            <DetailSection title="Compliance Signals">
+              <ListField title="ISO 13485 Clauses" items={compliance.iso_13485_clauses} />
+              <ListField title="FDA 21 CFR 820 Sections" items={compliance.fda_21_cfr_820_sections} />
+              <ListField title="Audit Readiness Flags" items={compliance.audit_readiness_flags} />
+              <ListField title="Missing Records" items={compliance.missing_records} />
+              <ListField title="Upcoming Deadlines" items={(compliance.upcoming_deadlines || []).map((item: any) => `${item.item} — ${item.due_date} (${item.priority || "normal"})`)} />
+            </DetailSection>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
