@@ -27,6 +27,8 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const systemItems = [
   { title: "AI Assistant", url: "/", icon: Bot },
@@ -48,6 +50,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { user, signOut } = useAuth();
   const isActive = (path: string) => location.pathname === path;
 
   return (
@@ -114,11 +117,29 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed && (
-          <div className="flex items-center gap-2 rounded-md bg-sidebar-accent/50 px-3 py-2">
-            <div className="h-2 w-2 rounded-full bg-status-success status-pulse" />
-            <span className="text-[11px] text-sidebar-foreground/70">
-              All agents active
-            </span>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-md bg-sidebar-accent/50 px-3 py-2">
+              <div className="h-2 w-2 rounded-full bg-status-success status-pulse" />
+              <span className="text-[11px] text-sidebar-foreground/70">
+                All agents active
+              </span>
+            </div>
+            <div className="rounded-md border border-sidebar-border bg-sidebar-accent/30 px-3 py-2">
+              <div className="text-[11px] font-medium text-sidebar-foreground">
+                {user?.name || user?.email || "Authenticated User"}
+              </div>
+              {user?.email && (
+                <div className="text-[10px] text-sidebar-foreground/60">{user.email}</div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 h-7 w-full border-sidebar-border bg-transparent text-[11px] text-sidebar-foreground hover:bg-sidebar-accent"
+                onClick={() => void signOut()}
+              >
+                Sign Out
+              </Button>
+            </div>
           </div>
         )}
       </SidebarFooter>

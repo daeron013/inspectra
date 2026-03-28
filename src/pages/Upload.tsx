@@ -2,10 +2,10 @@ import { useState, useRef } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, Link2, Brain, Search, AlertOctagon, Clock, Sparkles } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { listDocuments, processUploadedDocument, uploadDocuments } from "@/lib/api";
 
 const typeLabels: Record<string, string> = {
   certificate: 'Supplier Certificate',
@@ -39,11 +39,7 @@ function useDocuments() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["documents"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("documents").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: async () => listDocuments(user!.id),
     enabled: !!user,
   });
 }
@@ -74,11 +70,7 @@ const UploadPage = () => {
   const processDocument = async (documentId: string) => {
     setProcessingIds(prev => new Set(prev).add(documentId));
     try {
-      const { data, error } = await supabase.functions.invoke('process-document', {
-        body: { document_id: documentId },
-      });
-
-      if (error) throw error;
+      const data = await processUploadedDocument(documentId, user!.id);
 
       setProcessingResults(prev => ({ ...prev, [documentId]: data }));
       qc.invalidateQueries({ queryKey: ["documents"] });
@@ -115,24 +107,9 @@ const UploadPage = () => {
     if (!user) return;
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
-        const filePath = `${user.id}/${Date.now()}_${file.name}`;
-        const { error: storageError } = await supabase.storage.from("documents").upload(filePath, file);
-        if (storageError) throw storageError;
+      const createdDocuments = await uploadDocuments(user.id, files);
 
-        const docType = detectType(file.name);
-        const { data: docRecord, error: dbError } = await supabase.from("documents").insert({
-          user_id: user.id,
-          title: file.name.replace(/\.[^/.]+$/, ""),
-          document_type: docType,
-          file_name: file.name,
-          file_path: filePath,
-          file_size: file.size,
-          status: "draft",
-        } as any).select("id").single();
-        if (dbError) throw dbError;
-
-        // Auto-trigger AI processing
+      for (const docRecord of createdDocuments) {
         if (docRecord?.id) {
           processDocument(docRecord.id);
         }
