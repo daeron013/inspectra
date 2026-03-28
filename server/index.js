@@ -18,6 +18,14 @@ import {
   serializeDoc,
   updateEntity,
 } from "./qms.js";
+import {
+  ensureAgentRunsIndexes,
+  getAgentRun,
+  listAgentRuns,
+  logAgentRun,
+  resolveAgentRun,
+} from "./agent-runs.js";
+import { runInspectionAgent } from "./agents/inspection-agent.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -290,6 +298,120 @@ app.delete("/api/qms/:entity/:id", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Inspectra Atlas API listening on http://127.0.0.1:${port}`);
+// --- Agent runs ---
+
+app.get("/api/agent-runs", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const { agent_type, status, requires_human_review, limit } = req.query;
+    const runs = await listAgentRuns(db, userId, {
+      agentType: agent_type,
+      status,
+      requiresHumanReview:
+        requires_human_review === "true" ? true
+        : requires_human_review === "false" ? false
+        : undefined,
+      limit: limit ? Number(limit) : 50,
+    });
+    res.json(runs);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to list agent runs" });
+  }
 });
+
+app.get("/api/agent-runs/:id", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const run = await getAgentRun(db, userId, req.params.id);
+    if (!run) return res.status(404).json({ error: "Agent run not found" });
+    res.json(run);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to get agent run" });
+  }
+});
+
+app.post("/api/agent-runs", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const run = await logAgentRun(db, { userId, ...req.body });
+    res.status(201).json(run);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Failed to log agent run" });
+  }
+});
+
+app.patch("/api/agent-runs/:id/resolve", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const run = await resolveAgentRun(db, userId, req.params.id);
+    if (!run) return res.status(404).json({ error: "Agent run not found" });
+    res.json(run);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to resolve agent run" });
+  }
+});
+
+// --- Inspection agent trigger ---
+
+app.post("/api/agents/inspection/:inspectionId", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const result = await runInspectionAgent(db, userId, req.params.inspectionId);
+    res.json(result);
+  } catch (error) {
+    console.error("inspection agent failed", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Inspection agent failed" });
+  }
+});
+
+// --- Startup ---
+
+async function watchInspections(db) {
+  try {
+    const changeStream = db.collection("inspections").watch(
+      [{ $match: { operationType: "insert" } }],
+      { fullDocument: "updateLookup" }
+    );
+
+    changeStream.on("change", async (event) => {
+      const doc = event.fullDocument;
+      if (!doc?.user_id) return;
+      console.log(`[InspectionAgent] New inspection detected: ${doc._id}`);
+      try {
+        await runInspectionAgent(db, doc.user_id, doc._id.toString());
+        console.log(`[InspectionAgent] Completed for inspection ${doc._id}`);
+      } catch (err) {
+        console.error(`[InspectionAgent] Failed for inspection ${doc._id}:`, err.message);
+      }
+    });
+
+    changeStream.on("error", (err) => {
+      console.error("[InspectionAgent] Change stream error:", err.message);
+    });
+
+    console.log("[InspectionAgent] Watching inspections collection for new inserts...");
+  } catch (err) {
+    console.warn("[InspectionAgent] Change streams not available (replica set required). Manual trigger only.");
+  }
+}
+
+async function start() {
+  const db = await getDb();
+  await ensureAgentRunsIndexes(db);
+  await watchInspections(db);
+  app.listen(port, () => {
+    console.log(`Inspectra Atlas API listening on http://127.0.0.1:${port}`);
+  });
+}
+
+start();

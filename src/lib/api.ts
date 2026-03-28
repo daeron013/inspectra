@@ -100,3 +100,25 @@ export async function deleteQmsRecord(entity: EntityName, id: string, userId: st
     method: "DELETE",
   });
 }
+
+export async function listAgentRuns(userId: string, agentType?: string) {
+  const params = new URLSearchParams({ userId });
+  if (agentType) params.set("agent_type", agentType);
+  return apiFetch<any[]>(`/api/agent-runs?${params.toString()}`);
+}
+
+export async function resolveAgentRun(id: string, userId: string) {
+  return apiFetch<any>(`/api/agent-runs/${id}/resolve`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function triggerInspectionAgent(inspectionId: string, userId: string) {
+  return apiFetch<any>(`/api/agents/inspection/${inspectionId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+}

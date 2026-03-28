@@ -1,3 +1,18 @@
-.env.local
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.DS_Store
+.vscode/

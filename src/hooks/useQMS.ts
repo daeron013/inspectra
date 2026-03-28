@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createQmsRecord, deleteQmsRecord, listQmsRecords, updateQmsRecord } from "@/lib/api";
+import { createQmsRecord, deleteQmsRecord, listAgentRuns, listQmsRecords, resolveAgentRun, updateQmsRecord } from "@/lib/api";
 
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
@@ -180,4 +180,23 @@ export function useUpdateCAPA() {
 
 export function useDeleteCAPA() {
   return useDeleteEntity("capas", "CAPA deleted");
+}
+
+export function useAgentRuns(agentType?: string) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["agent-runs", agentType],
+    queryFn: () => listAgentRuns(user!.id, agentType),
+    enabled: !!user,
+    refetchInterval: 15000,
+  });
+}
+
+export function useResolveAgentRun() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (id: string) => resolveAgentRun(id, user!.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-runs"] }),
+  });
 }
