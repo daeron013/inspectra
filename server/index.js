@@ -26,6 +26,13 @@ import {
   resolveAgentRun,
 } from "./agent-runs.js";
 import { runInspectionAgent } from "./agents/inspection-agent.js";
+import { ensureCapaAgentIndexes, runCapaAgent, runCapaAgentOnNcr } from "./agents/capa-agent.js";
+import { ensureSupplierAgentIndexes, runSupplierAgent } from "./agents/supplier-agent.js";
+import {
+  ensureComplianceAgentIndexes,
+  listComplianceAgentRiskItems,
+  runComplianceAgent,
+} from "./agents/compliance-agent.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -374,6 +381,64 @@ app.post("/api/agents/inspection/:inspectionId", async (req, res) => {
   }
 });
 
+// --- CAPA agent (separate pipeline; only CAPA-domain tools in capa-agent.js) ---
+
+app.post("/api/agents/capa/run", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const options = req.body?.options && typeof req.body.options === "object" ? req.body.options : {};
+    const result = await runCapaAgent(db, userId, options);
+    res.json(result);
+  } catch (error) {
+    console.error("capa agent failed", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "CAPA agent failed" });
+  }
+});
+
+app.post("/api/agents/supplier/run", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const options = req.body?.options && typeof req.body.options === "object" ? req.body.options : {};
+    const result = await runSupplierAgent(db, userId, options);
+    res.json(result);
+  } catch (error) {
+    console.error("supplier agent failed", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Supplier agent failed" });
+  }
+});
+
+app.post("/api/agents/compliance/run", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const options = req.body?.options && typeof req.body.options === "object" ? req.body.options : {};
+    const result = await runComplianceAgent(db, userId, options);
+    res.json(result);
+  } catch (error) {
+    console.error("compliance agent failed", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Compliance agent failed" });
+  }
+});
+
+app.get("/api/agents/compliance/items", async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const db = await getDb();
+    const limit = req.query.limit ? Number(req.query.limit) : 60;
+    const items = await listComplianceAgentRiskItems(db, userId, { limit });
+    res.json(items);
+  } catch (error) {
+    console.error("compliance items list failed", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to list items" });
+  }
+});
+
 // --- Startup ---
 
 async function watchInspections(db) {
@@ -405,10 +470,44 @@ async function watchInspections(db) {
   }
 }
 
+async function watchNcrs(db) {
+  try {
+    const changeStream = db.collection("ncrs").watch([{ $match: { operationType: "insert" } }], {
+      fullDocument: "updateLookup",
+    });
+
+    changeStream.on("change", async (event) => {
+      const doc = event.fullDocument;
+      if (!doc?.user_id) return;
+      const sev = String(doc.severity || "").toLowerCase();
+      if (!["critical", "major"].includes(sev)) return;
+      console.log(`[CapaAgent] Critical/major NCR detected: ${doc._id} (${doc.severity})`);
+      try {
+        await runCapaAgentOnNcr(db, doc.user_id, doc._id.toString());
+        console.log(`[CapaAgent] Completed pattern scan triggered by NCR ${doc._id}`);
+      } catch (err) {
+        console.error(`[CapaAgent] Failed for NCR ${doc._id}:`, err.message);
+      }
+    });
+
+    changeStream.on("error", (err) => {
+      console.error("[CapaAgent] Change stream error:", err.message);
+    });
+
+    console.log("[CapaAgent] Watching NCRs for critical/major inserts...");
+  } catch (err) {
+    console.warn("[CapaAgent] Change streams not available (replica set required). Manual trigger only.");
+  }
+}
+
 async function start() {
   const db = await getDb();
   await ensureAgentRunsIndexes(db);
+  await ensureCapaAgentIndexes(db);
+  await ensureSupplierAgentIndexes(db);
+  await ensureComplianceAgentIndexes(db);
   await watchInspections(db);
+  await watchNcrs(db);
   app.listen(port, () => {
     console.log(`Inspectra Atlas API listening on http://127.0.0.1:${port}`);
   });

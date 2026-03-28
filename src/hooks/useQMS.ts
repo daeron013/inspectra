@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createQmsRecord, deleteQmsRecord, listAgentRuns, listQmsRecords, resolveAgentRun, updateQmsRecord } from "@/lib/api";
+import {
+  createQmsRecord,
+  deleteQmsRecord,
+  listAgentRuns,
+  listComplianceAgentItems,
+  listQmsRecords,
+  resolveAgentRun,
+  runCapaAgent,
+  runComplianceAgent,
+  runSupplierAgent,
+  updateQmsRecord,
+} from "@/lib/api";
 
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
@@ -198,5 +209,87 @@ export function useResolveAgentRun() {
   return useMutation({
     mutationFn: (id: string) => resolveAgentRun(id, user!.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-runs"] }),
+  });
+}
+
+export function useRunCapaAgent() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (options?: { days_back?: number }) => runCapaAgent(user!.id, options),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["capas"] });
+      qc.invalidateQueries({ queryKey: ["ncrs"] });
+      qc.invalidateQueries({ queryKey: ["agent-runs"] });
+      const capaNo = data?.capa_created?.capa_number;
+      toast({
+        title: "CAPA Agent complete",
+        description: capaNo ? `Created ${capaNo}` : (data?.summary || "Analysis finished").slice(0, 160),
+      });
+    },
+    onError: (e: Error) => {
+      toast({ title: "CAPA Agent failed", description: e.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useRunSupplierAgent() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (options?: { days_back?: number; supplier_id?: string }) => runSupplierAgent(user!.id, options),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+      qc.invalidateQueries({ queryKey: ["agent-runs"] });
+      const n = data?.suppliers_updated?.length ?? 0;
+      toast({
+        title: "Supplier Agent complete",
+        description:
+          n > 0
+            ? `Updated ${n} supplier profile(s). ${(data?.summary || "").slice(0, 120)}`
+            : (data?.summary || "Analysis finished").slice(0, 160),
+      });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Supplier Agent failed", description: e.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useComplianceAgentItems(limit = 60) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["compliance-agent-items", limit],
+    queryFn: () => listComplianceAgentItems(user!.id, limit),
+    enabled: !!user,
+  });
+}
+
+export function useRunComplianceAgent() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (options?: { horizon_days?: number }) => runComplianceAgent(user!.id, options),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["agent-runs"] });
+      qc.invalidateQueries({ queryKey: ["compliance-agent-items"] });
+      const n = data?.risk_items_recorded ?? 0;
+      toast({
+        title: "Compliance Agent complete",
+        description:
+          n > 0
+            ? `Recorded ${n} prioritized risk row(s). ${(data?.summary || "").slice(0, 100)}`
+            : (data?.summary || "Analysis finished").slice(0, 160),
+      });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Compliance Agent failed", description: e.message, variant: "destructive" });
+    },
   });
 }

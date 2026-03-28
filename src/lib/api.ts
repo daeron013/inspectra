@@ -122,3 +122,42 @@ export async function triggerInspectionAgent(inspectionId: string, userId: strin
     body: JSON.stringify({ userId }),
   });
 }
+
+/** Dedicated CAPA agent (NCR history → patterns → CAPA → notifications). Separate from inspection agent. */
+export async function runCapaAgent(
+  userId: string,
+  options?: { days_back?: number; min_cluster_size?: number },
+) {
+  return apiFetch<any>("/api/agents/capa/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, options: options || {} }),
+  });
+}
+
+/** Supplier agent: cert expiry, NCR trends, risk scoring, optional profile updates and procurement notices. */
+export async function runSupplierAgent(
+  userId: string,
+  options?: { days_back?: number; supplier_id?: string },
+) {
+  return apiFetch<any>("/api/agents/supplier/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, options: options || {} }),
+  });
+}
+
+/** Compliance agent: cross-domain regulatory risk prioritization; writes to compliance_agent_* collections only. */
+export async function runComplianceAgent(userId: string, options?: { horizon_days?: number }) {
+  return apiFetch<any>("/api/agents/compliance/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, options: options || {} }),
+  });
+}
+
+export async function listComplianceAgentItems(userId: string, limit?: number) {
+  const params = new URLSearchParams({ userId });
+  if (limit != null) params.set("limit", String(limit));
+  return apiFetch<any[]>(`/api/agents/compliance/items?${params.toString()}`);
+}

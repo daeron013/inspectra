@@ -27,7 +27,7 @@ const agentConfig: Record<string, { icon: React.ComponentType<{ className?: stri
     icon: Clock,
     label: "Compliance Agent",
     description:
-      "Deadline scanning, audit tracking, and regulatory calendar — prioritizes which dates matter using cross-domain context (sole-source exposure, device risk class, audit history)",
+      "Regulatory risk prioritizer — ranks which deadlines matter using cross-domain context (supplier dependency, device risk class, audit history). Separate compliance_agent_* data stores.",
     color: "text-agent-compliance",
   },
 };

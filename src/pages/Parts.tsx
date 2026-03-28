@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
-import { useParts, useCreatePart, useUpdatePart, useDeletePart, useSuppliers, useLots, useDevices, useInspections, useNCRs, useCAPAs } from "@/hooks/useQMS";
+import { useParts, useCreatePart, useUpdatePart, useDeletePart, useSuppliers, useLots, useDevices, useInspections, useNCRs, useCAPAs, useRunSupplierAgent, useAgentRuns } from "@/hooks/useQMS";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, ShieldCheck, CheckCircle, XCircle, Clock, AlertTriangle, Search, ArrowRight, Link2, Cpu, FileDown, Users } from "lucide-react";
+import { Plus, Edit, Trash2, ShieldCheck, CheckCircle, XCircle, Clock, AlertTriangle, Search, ArrowRight, Link2, Cpu, FileDown, Users, Brain, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +65,10 @@ const PartsPage = () => {
   const { data: inspections = [] } = useInspections();
   const { data: ncrs = [] } = useNCRs();
   const { data: capas = [] } = useCAPAs();
+  const supplierAgentMutation = useRunSupplierAgent();
+  const { data: supplierAgentRuns = [] } = useAgentRuns("supplier");
+  const lastSupplierRun = supplierAgentRuns[0];
+  const [supplierWindow, setSupplierWindow] = useState<180 | 365>(365);
   const [lotSearch, setLotSearch] = useState('');
   const [partSearch, setPartSearch] = useState('');
   const [selectedPart, setSelectedPart] = useState<any | null>(null);
@@ -201,7 +205,56 @@ const PartsPage = () => {
             )}
           </div>
         </TabsContent>
-        <TabsContent value="suppliers" className="mt-4">
+        <TabsContent value="suppliers" className="mt-4 space-y-4">
+          <div className="glass-card rounded-xl p-5 border border-agent-supplier/20 bg-agent-supplier/5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2 max-w-2xl">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-agent-supplier/15 text-agent-supplier border border-agent-supplier/25">
+                    <Brain className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">Supplier Agent</h2>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Supplier risk, certification, and NCR signals.
+                    </p>
+                  </div>
+                </div>
+                {lastSupplierRun && (
+                  <p className="text-[11px] text-muted-foreground border-l-2 border-agent-supplier/40 pl-3">
+                    <span className="font-medium text-foreground/80">Last run:</span>{" "}
+                    {lastSupplierRun.action_taken}
+                    {lastSupplierRun.created_at && (
+                      <span className="text-muted-foreground/70"> — {new Date(lastSupplierRun.created_at).toLocaleString()}</span>
+                    )}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                <Select value={String(supplierWindow)} onValueChange={(v) => setSupplierWindow(Number(v) as 180 | 365)}>
+                  <SelectTrigger className="h-9 w-[140px] text-xs">
+                    <SelectValue placeholder="Window" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="180">180-day NCR window</SelectItem>
+                    <SelectItem value="365">365-day NCR window</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  className="gap-2 h-9"
+                  disabled={supplierAgentMutation.isPending}
+                  onClick={() => supplierAgentMutation.mutate({ days_back: supplierWindow })}
+                >
+                  {supplierAgentMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Run supplier review
+                </Button>
+              </div>
+            </div>
+          </div>
           <div className="glass-card rounded-xl overflow-hidden">
             {suppliers.filter((supplier) =>
               [supplier.name, supplier.code, supplier.contact_email, supplier.certification_type]

@@ -1,9 +1,11 @@
+import { useMemo, useState } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, AlertTriangle, XCircle, CalendarDays, ShieldCheck, FileDown, FileText, ClipboardCheck, Building2, Shield } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, XCircle, CalendarDays, ShieldCheck, FileDown, FileText, ClipboardCheck, Building2, Shield, Scale, Sparkles, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { useSuppliers, useParts, useLots, useInspections, useNCRs, useCAPAs } from "@/hooks/useQMS";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSuppliers, useParts, useLots, useInspections, useNCRs, useCAPAs, useRunComplianceAgent, useComplianceAgentItems, useAgentRuns } from "@/hooks/useQMS";
 import {
   generateApprovedSupplierListPdf,
   generateIncomingInspectionPacketPdf,
@@ -44,6 +46,13 @@ const statusConfig: Record<string, { label: string; className: string; icon: Rea
   'in-progress': { label: 'In Progress', className: 'bg-status-warning/10 text-status-warning border-status-warning/20', icon: Clock },
 };
 
+const tierBadgeClass: Record<string, string> = {
+  P0: "border-status-danger/40 text-status-danger bg-status-danger/10",
+  P1: "border-status-warning/40 text-status-warning bg-status-warning/10",
+  P2: "border-status-info/40 text-status-info bg-status-info/10",
+  P3: "text-muted-foreground",
+};
+
 const CompliancePage = () => {
   const { data: suppliers = [] } = useSuppliers();
   const { data: parts = [] } = useParts();
@@ -51,6 +60,18 @@ const CompliancePage = () => {
   const { data: inspections = [] } = useInspections();
   const { data: ncrs = [] } = useNCRs();
   const { data: capas = [] } = useCAPAs();
+  const complianceAgentMutation = useRunComplianceAgent();
+  const { data: complianceRiskItems = [], isLoading: riskItemsLoading } = useComplianceAgentItems(80);
+  const { data: complianceAgentRuns = [] } = useAgentRuns("compliance");
+  const [horizonDays, setHorizonDays] = useState<180 | 365>(365);
+  const lastComplianceRun = complianceAgentRuns[0];
+
+  const latestBatchItems = useMemo(() => {
+    const batch = complianceRiskItems[0]?.run_batch_id;
+    if (!batch) return [];
+    return complianceRiskItems.filter((r: { run_batch_id?: string }) => r.run_batch_id === batch);
+  }, [complianceRiskItems]);
+
   const overdue = complianceItems.filter(c => c.status === 'overdue');
   const upcoming = complianceItems.filter(c => c.status === 'upcoming').sort((a, b) => a.daysRemaining - b.daysRemaining);
   const completed = complianceItems.filter(c => c.status === 'completed');
@@ -110,6 +131,89 @@ const CompliancePage = () => {
         <div className="glass-card p-5">
           <div className="text-3xl font-semibold text-status-success">{completed.length}</div>
           <div className="text-xs text-muted-foreground mt-1">Completed</div>
+        </div>
+      </div>
+
+      <div className="glass-card rounded-xl p-5 border border-agent-compliance/20 bg-agent-compliance/5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-agent-compliance/15 text-agent-compliance border border-agent-compliance/25">
+                <Scale className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Compliance Agent</h2>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Regulatory risk prioritizer — ranks which deadlines matter using cross-domain context (supplier dependency, device risk class, audit history). Writes only to compliance agent data stores.
+                </p>
+              </div>
+            </div>
+            {lastComplianceRun && (
+              <p className="text-[11px] text-muted-foreground border-l-2 border-agent-compliance/40 pl-3">
+                <span className="font-medium text-foreground/80">Last run:</span>{" "}
+                {lastComplianceRun.action_taken}
+                {lastComplianceRun.created_at && (
+                  <span className="text-muted-foreground/70"> — {new Date(lastComplianceRun.created_at).toLocaleString()}</span>
+                )}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            <Select value={String(horizonDays)} onValueChange={(v) => setHorizonDays(Number(v) as 180 | 365)}>
+              <SelectTrigger className="h-9 w-[160px] text-xs">
+                <SelectValue placeholder="Horizon" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="180">180-day horizon</SelectItem>
+                <SelectItem value="365">365-day horizon</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              className="gap-2 h-9"
+              disabled={complianceAgentMutation.isPending}
+              onClick={() => complianceAgentMutation.mutate({ horizon_days: horizonDays })}
+            >
+              {complianceAgentMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Run risk prioritization
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-5 pt-5 border-t border-border/50">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+            Latest prioritized risks (from agent database)
+          </div>
+          {riskItemsLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : latestBatchItems.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No prioritized rows yet. Run the agent to populate <code className="text-[10px]">compliance_agent_risk_items</code>.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {latestBatchItems.map((row: Record<string, unknown>) => (
+                <li key={String(row.id)} className="rounded-lg border border-border/50 bg-card/50 px-3 py-2.5">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <Badge variant="outline" className={`text-[10px] ${tierBadgeClass[String(row.priority_tier)] || tierBadgeClass.P3}`}>
+                      {String(row.priority_tier)}
+                    </Badge>
+                    <span className="text-xs font-medium text-foreground">{String(row.title)}</span>
+                    {row.due_date && (
+                      <span className="text-[10px] text-muted-foreground">Due {String(row.due_date)}</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">{String(row.reasoning)}</p>
+                  {row.context_factors && (
+                    <p className="text-[10px] text-muted-foreground/80 mt-1 font-mono line-clamp-2">{String(row.context_factors)}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

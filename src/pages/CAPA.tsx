@@ -1,8 +1,17 @@
 import { useState } from "react";
 import { PageLayout } from "@/components/PageLayout";
-import { useCAPAs, useCreateCAPA, useUpdateCAPA, useDeleteCAPA, useNCRs } from "@/hooks/useQMS";
+import {
+  useCAPAs,
+  useCreateCAPA,
+  useUpdateCAPA,
+  useDeleteCAPA,
+  useNCRs,
+  useRunCapaAgent,
+  useAgentRuns,
+} from "@/hooks/useQMS";
+import { generateCapaInspectorPackagePdf } from "@/utils/capaInspectorPdf";
 import { Badge } from "@/components/ui/badge";
-import { Brain, CheckCircle, Clock, ArrowRight, Search, Plus, Trash2 } from "lucide-react";
+import { Brain, CheckCircle, Clock, ArrowRight, Search, Plus, Trash2, Download, Loader2, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -72,11 +81,16 @@ const priorityConfig: Record<string, { className: string }> = {
 const CAPAPage = () => {
   const { data: capas = [], isLoading } = useCAPAs();
   const { data: ncrs = [] } = useNCRs();
+  const { data: capaAgentRuns = [] } = useAgentRuns("capa");
   const createMutation = useCreateCAPA();
   const updateMutation = useUpdateCAPA();
   const deleteMutation = useDeleteCAPA();
+  const capaAgentMutation = useRunCapaAgent();
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [analysisWindow, setAnalysisWindow] = useState<180 | 365>(180);
+
+  const lastCapaRun = capaAgentRuns[0];
 
   const filtered = capas.filter(c =>
     c.capa_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -85,6 +99,67 @@ const CAPAPage = () => {
 
   return (
     <PageLayout title="CAPA Management" subtitle="Corrective & preventive actions — root cause analysis & tracking">
+      <div className="glass-card rounded-xl p-5 border border-agent-capa/20 bg-agent-capa/5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-agent-capa/15 text-agent-capa border border-agent-capa/25">
+                <Brain className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">CAPA Agent</h2>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Uses only NCR history, pattern detection, CAPA creation, and engineering notifications.
+                </p>
+              </div>
+            </div>
+            {lastCapaRun && (
+              <p className="text-[11px] text-muted-foreground border-l-2 border-agent-capa/40 pl-3">
+                <span className="font-medium text-foreground/80">Last run:</span>{" "}
+                {lastCapaRun.action_taken}
+                {lastCapaRun.created_at && (
+                  <span className="text-muted-foreground/70"> — {new Date(lastCapaRun.created_at).toLocaleString()}</span>
+                )}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            <Select
+              value={String(analysisWindow)}
+              onValueChange={(v) => setAnalysisWindow(Number(v) as 180 | 365)}
+            >
+              <SelectTrigger className="h-9 w-[140px] text-xs">
+                <SelectValue placeholder="Window" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="180">180-day window</SelectItem>
+                <SelectItem value="365">365-day window</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              className="gap-2 h-9"
+              disabled={capaAgentMutation.isPending}
+              onClick={() => capaAgentMutation.mutate({ days_back: analysisWindow })}
+            >
+              {capaAgentMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Run CAPA analysis
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2 h-9"
+              onClick={() => generateCapaInspectorPackagePdf({ capas, ncrs })}
+            >
+              <Download className="h-4 w-4" />
+              Inspector PDF
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total CAPAs', value: capas.length },

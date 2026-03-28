@@ -1,10 +1,10 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/PageLayout";
-import { useSuppliers, useParts, useInspections, useNCRs, useCAPAs, useLots } from "@/hooks/useQMS";
+import { useSuppliers, useParts, useInspections, useNCRs, useCAPAs, useLots, useRunSupplierAgent, useAgentRuns } from "@/hooks/useQMS";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ShieldCheck, ShieldAlert, ShieldX, Package, Search, AlertTriangle, Brain } from "lucide-react";
+import { ArrowLeft, ShieldCheck, ShieldAlert, ShieldX, Package, Search, AlertTriangle, Brain, Sparkles, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const statusConfig: Record<string, { label: string; className: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -30,6 +30,8 @@ const SupplierDetailPage = () => {
   const { data: inspections = [] } = useInspections();
   const { data: ncrs = [] } = useNCRs();
   const { data: capas = [] } = useCAPAs();
+  const supplierAgentMutation = useRunSupplierAgent();
+  const { data: supplierAgentRuns = [] } = useAgentRuns("supplier");
 
   const supplier = suppliers.find(s => s.id === id);
   if (!supplier) {
@@ -60,11 +62,44 @@ const SupplierDetailPage = () => {
     return diff > 0 && diff < 90;
   };
 
+  const lastSupplierRun = supplierAgentRuns[0];
+  const agentSummary = (supplier as { supplier_agent_summary?: string }).supplier_agent_summary;
+
   return (
     <PageLayout title={supplier.name} subtitle={`Supplier ${supplier.code} — Compliance & linked records`}>
       <Button variant="outline" size="sm" onClick={() => navigate('/parts')} className="gap-2 mb-2">
         <ArrowLeft className="h-4 w-4" /> Back to Parts
       </Button>
+
+      <div className="glass-card rounded-xl p-4 mb-4 border border-agent-supplier/20 bg-agent-supplier/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="space-y-1 min-w-0">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Brain className="h-4 w-4 text-agent-supplier shrink-0" />
+            Supplier Agent
+          </div>
+          {lastSupplierRun && (
+            <p className="text-[11px] text-muted-foreground line-clamp-2">
+              Last portfolio run: {lastSupplierRun.action_taken}
+            </p>
+          )}
+        </div>
+        <Button
+          size="sm"
+          className="gap-2 shrink-0"
+          disabled={supplierAgentMutation.isPending}
+          onClick={() => supplierAgentMutation.mutate({ days_back: 365, supplier_id: id })}
+        >
+          {supplierAgentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          Run for this supplier
+        </Button>
+      </div>
+
+      {agentSummary && (
+        <div className="glass-card rounded-xl p-4 mb-4 border border-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Latest agent assessment</div>
+          <p className="text-xs text-foreground leading-relaxed">{agentSummary}</p>
+        </div>
+      )}
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
