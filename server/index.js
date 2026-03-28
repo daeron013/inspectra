@@ -329,9 +329,39 @@ app.post("/api/agents/inspection/:inspectionId", async (req, res) => {
 
 // --- Startup ---
 
+async function watchInspections(db) {
+  try {
+    const changeStream = db.collection("inspections").watch(
+      [{ $match: { operationType: "insert" } }],
+      { fullDocument: "updateLookup" }
+    );
+
+    changeStream.on("change", async (event) => {
+      const doc = event.fullDocument;
+      if (!doc?.user_id) return;
+      console.log(`[InspectionAgent] New inspection detected: ${doc._id}`);
+      try {
+        await runInspectionAgent(db, doc.user_id, doc._id.toString());
+        console.log(`[InspectionAgent] Completed for inspection ${doc._id}`);
+      } catch (err) {
+        console.error(`[InspectionAgent] Failed for inspection ${doc._id}:`, err.message);
+      }
+    });
+
+    changeStream.on("error", (err) => {
+      console.error("[InspectionAgent] Change stream error:", err.message);
+    });
+
+    console.log("[InspectionAgent] Watching inspections collection for new inserts...");
+  } catch (err) {
+    console.warn("[InspectionAgent] Change streams not available (replica set required). Manual trigger only.");
+  }
+}
+
 async function start() {
   const db = await getDb();
   await ensureAgentRunsIndexes(db);
+  await watchInspections(db);
   app.listen(port, () => {
     console.log(`Inspectra Atlas API listening on http://127.0.0.1:${port}`);
   });

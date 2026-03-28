@@ -8,10 +8,26 @@ import {
   FileText, ShieldCheck, Brain, Printer, AlertOctagon, Download, Zap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useSuppliers, useParts } from "@/hooks/useQMS";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useAuth } from "@/hooks/useAuth";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import type { Schema } from "hast-util-sanitize";
+
+/** Allow limited inline HTML from the model (callout boxes); `style` only on safe wrappers. */
+const assistantMarkdownSchema: Schema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    div: [...(defaultSchema.attributes?.div ?? []), "style"],
+    p: [...(defaultSchema.attributes?.p ?? []), "style"],
+    span: [...(defaultSchema.attributes?.span ?? []), "style"],
+  },
+};
+
+const assistantRehypePlugins = [rehypeRaw, [rehypeSanitize, assistantMarkdownSchema] as const];
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -410,7 +426,9 @@ const AIAssistantPage = () => {
                         [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2
                         [&_hr]:my-4 [&_hr]:border-border/40
                       ">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={assistantRehypePlugins}>
+                          {msg.content}
+                        </ReactMarkdown>
                       </div>
 
                       {actions.length > 0 && (

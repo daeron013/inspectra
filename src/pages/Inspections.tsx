@@ -15,7 +15,7 @@ function InspectionFormDialog({ open, onOpenChange, onSubmit, lots }: {
   open: boolean; onOpenChange: (o: boolean) => void;
   onSubmit: (data: Record<string, any>) => void; lots: any[];
 }) {
-  const [form, setForm] = useState({ lot_id: '', inspection_type: 'incoming', status: 'pending', inspector_name: '', sample_size: 0, defects_found: 0, notes: '' });
+  const [form, setForm] = useState({ lot_id: '', lot_number: '', inspection_type: 'incoming', status: 'pending', inspector_name: '', sample_size: 0, defects_found: 0, notes: '' });
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
 
   return (
@@ -23,11 +23,16 @@ function InspectionFormDialog({ open, onOpenChange, onSubmit, lots }: {
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>New Inspection</DialogTitle></DialogHeader>
         <form onSubmit={e => { e.preventDefault(); onSubmit(form); onOpenChange(false); }} className="space-y-3">
-          <div><Label className="text-xs">Lot</Label>
-            <Select value={form.lot_id} onValueChange={v => set('lot_id', v)}>
-              <SelectTrigger><SelectValue placeholder="Select lot" /></SelectTrigger>
-              <SelectContent>{lots.map(l => <SelectItem key={l.id} value={l.id}>{l.lot_number} — {(l as any).parts?.name || ''}</SelectItem>)}</SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Lot</Label>
+              <Select value={form.lot_id} onValueChange={v => set('lot_id', v)}>
+                <SelectTrigger><SelectValue placeholder="Select lot" /></SelectTrigger>
+                <SelectContent>{lots.map(l => <SelectItem key={l.id} value={l.id}>{l.lot_number} — {(l as any).parts?.name || ''}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Lot Number</Label>
+              <Input placeholder="e.g. LOT-0042" value={form.lot_number} onChange={e => set('lot_number', e.target.value)} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label className="text-xs">Type</Label>
@@ -113,8 +118,8 @@ const InspectionsPage = () => {
                   {filtered.map(ins => (
                     <TableRow key={ins.id} className="cursor-pointer" onClick={() => setSelected(ins)}>
                       <TableCell>
-                        <div className="text-sm font-medium">{(ins as any).lots?.parts?.name || '—'}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono">{(ins as any).lots?.lot_number || '—'}</div>
+                        <div className="text-sm font-medium">{(ins as any).lots?.parts?.name || (ins as any).lot_number || '—'}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{(ins as any).lots?.lot_number || (ins as any).lot_number || '—'}</div>
                       </TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px] capitalize">{ins.inspection_type}</Badge></TableCell>
                       <TableCell className="text-xs">{ins.sample_size}</TableCell>
@@ -138,9 +143,12 @@ const InspectionsPage = () => {
             <div className="glass-card p-5 space-y-4">
               <div>
                 <h3 className="font-semibold text-base">{(selected as any).lots?.parts?.name || 'Inspection'}</h3>
-                <p className="text-xs text-muted-foreground font-mono mt-0.5">{(selected as any).lots?.lot_number}</p>
+                <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                  {(selected as any).lots?.lot_number || (selected as any).lot_number || 'No lot assigned'}
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
+                <div><span className="text-muted-foreground">Lot Number:</span><div className="font-medium font-mono">{(selected as any).lots?.lot_number || (selected as any).lot_number || '—'}</div></div>
                 <div><span className="text-muted-foreground">Inspector:</span><div className="font-medium">{selected.inspector_name || '—'}</div></div>
                 <div><span className="text-muted-foreground">Sample Size:</span><div className="font-medium">{selected.sample_size}</div></div>
                 <div><span className="text-muted-foreground">Defects:</span><div className="font-medium">{selected.defects_found || 0}</div></div>
