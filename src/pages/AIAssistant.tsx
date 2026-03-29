@@ -278,7 +278,7 @@ const AIAssistantPage = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const initialPromptSent = useRef(false);
-  const { user } = useAuth();
+  const { getAccessToken } = useAuth();
 
   const { data: suppliers = [] } = useSuppliers();
   const { data: parts = [] } = useParts();
@@ -297,12 +297,14 @@ const AIAssistantPage = () => {
 
     let assistantSoFar = "";
     try {
+      const token = await getAccessToken();
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ messages: allMessages, userId: user?.id }),
+        body: JSON.stringify({ messages: allMessages }),
       });
 
       if (!resp.ok) {
@@ -352,7 +354,7 @@ const AIAssistantPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, toast, user?.id]);
+  }, [getAccessToken, isLoading, messages, toast]);
 
   useEffect(() => {
     const prompt = searchParams.get("prompt");

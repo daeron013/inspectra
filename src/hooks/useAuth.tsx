@@ -1,12 +1,15 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 import { Auth0Provider, AppState, useAuth0 } from "@auth0/auth0-react";
 import { useNavigate } from "react-router-dom";
+import { setApiAccessTokenProvider } from "@/lib/api";
 
 type AppUser = {
   id: string;
   email?: string;
   name?: string;
   picture?: string;
+  organizationId?: string;
+  organizationName?: string;
 };
 
 type AuthContextType = {
@@ -15,8 +18,10 @@ type AuthContextType = {
   loading: boolean;
   isAuthenticated: boolean;
   signOut: () => Promise<void>;
-  login: () => Promise<void>;
-  signup: () => Promise<void>;
+  login: (organization: string) => Promise<void>;
+  signup: (organization: string) => Promise<void>;
+  getAccessToken: () => Promise<string | null>;
+  error: string | null;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -27,6 +32,8 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   login: async () => {},
   signup: async () => {},
+  getAccessToken: async () => null,
+  error: null,
 });
 
 function Auth0Bridge({ children }: { children: ReactNode }) {
@@ -36,8 +43,49 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
     user,
     loginWithRedirect,
     logout,
+    error,
+    getAccessTokenSilently,
   } = useAuth0();
   const auth0Origin = `${window.location.origin}/`;
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+
+  useEffect(() => {
+    setApiAccessTokenProvider(async () => {
+      if (!isAuthenticated) return null;
+      return getAccessTokenSilently({
+        authorizationParams: {
+          ...(audience ? { audience } : {}),
+        },
+        cacheMode: "off",
+      });
+    });
+
+    return () => {
+      setApiAccessTokenProvider(null);
+    };
+  }, [audience, getAccessTokenSilently, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const explicitOrgName =
+      typeof (user as Record<string, unknown>).org_name === "string"
+        ? (user as Record<string, string>).org_name
+        : null;
+
+    if (explicitOrgName) {
+      localStorage.setItem("inspectra:last-org-name", explicitOrgName);
+      return;
+    }
+
+    const typedOrganization = localStorage.getItem("inspectra:last-org");
+    if (typedOrganization) {
+      localStorage.setItem("inspectra:last-org-name", typedOrganization);
+    }
+  }, [isAuthenticated, user]);
+
+  const fallbackOrganizationName =
+    typeof window !== "undefined" ? localStorage.getItem("inspectra:last-org-name") || undefined : undefined;
 
   const appUser = user
     ? {
@@ -45,6 +93,11 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
         email: user.email,
         name: user.name,
         picture: user.picture,
+        organizationId: typeof (user as Record<string, unknown>).org_id === "string" ? (user as Record<string, string>).org_id : undefined,
+        organizationName:
+          (typeof (user as Record<string, unknown>).org_name === "string"
+            ? (user as Record<string, string>).org_name
+            : undefined) || fallbackOrganizationName,
       }
     : null;
 
@@ -60,19 +113,37 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
         },
       });
     },
-    login: async () => {
-      await loginWithRedirect({
-        appState: { returnTo: "/" },
-      });
-    },
-    signup: async () => {
+    login: async (organization: string) => {
       await loginWithRedirect({
         appState: { returnTo: "/" },
         authorizationParams: {
+          redirect_uri: auth0Origin,
+          ...(audience ? { audience } : {}),
+          organization,
+        },
+      });
+    },
+    signup: async (organization: string) => {
+      await loginWithRedirect({
+        appState: { returnTo: "/" },
+        authorizationParams: {
+          redirect_uri: auth0Origin,
+          ...(audience ? { audience } : {}),
+          organization,
           screen_hint: "signup",
         },
       });
     },
+    getAccessToken: async () => {
+      if (!isAuthenticated) return null;
+      return getAccessTokenSilently({
+        authorizationParams: {
+          ...(audience ? { audience } : {}),
+        },
+        cacheMode: "off",
+      });
+    },
+    error: error?.message || null,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

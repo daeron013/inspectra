@@ -50,6 +50,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const organizationName = user?.organizationName;
   const isActive = (path: string) => location.pathname === path;
 
   return (
@@ -67,6 +68,11 @@ export function AppSidebar() {
               <span className="text-[10px] font-medium uppercase tracking-widest text-sidebar-foreground/60">
                 Quality Management
               </span>
+              {organizationName && (
+                <span className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-primary">
+                  {organizationName}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -127,6 +133,11 @@ export function AppSidebar() {
               <div className="text-[11px] font-medium text-sidebar-foreground">
                 {user?.name || user?.email || "Authenticated User"}
               </div>
+              {organizationName && (
+                <div className="text-[10px] text-sidebar-foreground/60">
+                  Workspace: {organizationName}
+                </div>
+              )}
               {user?.email && (
                 <div className="text-[10px] text-sidebar-foreground/60">{user.email}</div>
               )}

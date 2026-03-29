@@ -4,6 +4,7 @@ import { FloatingAIButton } from "@/components/FloatingAIButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Bell } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface PageLayoutProps {
   title: string;
@@ -14,6 +15,8 @@ interface PageLayoutProps {
 export function PageLayout({ title, subtitle, children }: PageLayoutProps) {
   const location = useLocation();
   const showFloatingAI = location.pathname !== "/ai";
+  const { user } = useAuth();
+  const organizationName = user?.organizationName;
 
   return (
     <SidebarProvider>
@@ -26,6 +29,11 @@ export function PageLayout({ title, subtitle, children }: PageLayoutProps) {
               <div>
                 <h1 className="text-base font-semibold text-foreground">{title}</h1>
                 <p className="text-[10px] text-muted-foreground tracking-wide">{subtitle}</p>
+                {organizationName && (
+                  <div className="mt-1 text-[10px] font-medium uppercase tracking-widest text-primary">
+                    Organization: {organizationName}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">

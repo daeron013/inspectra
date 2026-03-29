@@ -7,6 +7,7 @@ import express from "express";
 import multer from "multer";
 
 import { generateAssistantResponse, streamAssistantText } from "./assistant.js";
+import { getRequestUser, requireAuth } from "./auth.js";
 import { getBucket, getDb, toObjectId } from "./db.js";
 import { detectTypeFromName, processDocument } from "./rag.js";
 import {
@@ -39,21 +40,11 @@ dotenv.config();
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
-const port = Number(process.env.PORT || 3001);
+const parsedPort = Number.parseInt(process.env.PORT || "", 10);
+const port = Number.isInteger(parsedPort) && parsedPort >= 0 && parsedPort < 65536 ? parsedPort : 3001;
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
-
-function requireUserId(req, res) {
-  const body = req.body && typeof req.body === "object" ? req.body : {};
-  const query = req.query && typeof req.query === "object" ? req.query : {};
-  const userId = body.userId || query.userId || req.header("x-user-id");
-  if (!userId) {
-    res.status(400).json({ error: "userId is required" });
-    return null;
-  }
-  return userId;
-}
 
 async function uploadBufferToGridFs(bucket, buffer, filename, metadata) {
   const stream = bucket.openUploadStream(filename, { metadata });
@@ -67,10 +58,7 @@ app.get("/api/health", async (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/assistant", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.post("/api/assistant", requireAuth, async (req, res) => {
   try {
     const { messages } = req.body;
     if (!Array.isArray(messages)) {
@@ -78,8 +66,9 @@ app.post("/api/assistant", async (req, res) => {
       return;
     }
 
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const text = await generateAssistantResponse(db, userId, messages);
+    const text = await generateAssistantResponse(db, actor.scopeId, messages);
     streamAssistantText(text, res);
   } catch (error) {
     console.error("assistant failed", error);
@@ -91,13 +80,11 @@ app.post("/api/assistant", async (req, res) => {
   }
 });
 
-app.get("/api/documents", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.get("/api/documents", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const documents = await listDocuments(db, userId);
+    const documents = await listDocuments(db, actor.scopeId);
     res.json(documents);
   } catch (error) {
     console.error("list documents failed", error);
@@ -105,16 +92,15 @@ app.get("/api/documents", async (req, res) => {
   }
 });
 
-app.post("/api/documents/upload", upload.array("files"), async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.post("/api/documents/upload", requireAuth, upload.array("files"), async (req, res) => {
   if (!req.files?.length) {
     res.status(400).json({ error: "At least one file is required" });
     return;
   }
 
   try {
+    const actor = getRequestUser(req);
+    const userId = actor.scopeId;
     const db = await getDb();
     const bucket = await getBucket();
     const documents = db.collection("documents");
@@ -131,6 +117,9 @@ app.post("/api/documents/upload", upload.array("files"), async (req, res) => {
 
       const doc = normalizeForMongo({
         user_id: userId,
+        organization_id: actor.organizationId,
+        organization_name: actor.organizationName,
+        created_by_user_id: actor.id,
         title: file.originalname.replace(/\.[^/.]+$/, ""),
         document_type: detectTypeFromName(file.originalname),
         version: "1.0",
@@ -157,16 +146,14 @@ app.post("/api/documents/upload", upload.array("files"), async (req, res) => {
   }
 });
 
-app.post("/api/documents/:id/process", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.post("/api/documents/:id/process", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
     const bucket = await getBucket();
     const document = await db.collection("documents").findOne({
       _id: toObjectId(req.params.id),
-      user_id: userId,
+      user_id: actor.scopeId,
     });
 
     if (!document) {
@@ -182,16 +169,14 @@ app.post("/api/documents/:id/process", async (req, res) => {
   }
 });
 
-app.get("/api/documents/:id/file", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.get("/api/documents/:id/file", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
     const bucket = await getBucket();
     const document = await db.collection("documents").findOne({
       _id: toObjectId(req.params.id),
-      user_id: userId,
+      user_id: actor.scopeId,
     });
 
     if (!document) {
@@ -209,11 +194,10 @@ app.get("/api/documents/:id/file", async (req, res) => {
   }
 });
 
-app.delete("/api/documents/:id", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.delete("/api/documents/:id", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
+    const userId = actor.scopeId;
     const db = await getDb();
     const bucket = await getBucket();
     const documents = db.collection("documents");
@@ -256,49 +240,49 @@ app.delete("/api/documents/:id", async (req, res) => {
   }
 });
 
-app.get("/api/qms/:entity", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.get("/api/qms/:entity", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const records = await listEntity(db, req.params.entity, userId);
+    const records = await listEntity(db, req.params.entity, actor.scopeId);
     res.json(records);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to list records" });
   }
 });
 
-app.post("/api/qms/:entity", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.post("/api/qms/:entity", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const created = await createEntity(db, req.params.entity, userId, req.body);
+    const created = await createEntity(db, req.params.entity, actor.scopeId, {
+      ...req.body,
+      organization_id: actor.organizationId,
+      organization_name: actor.organizationName,
+      created_by_user_id: actor.id,
+    });
     res.status(201).json(created);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create record" });
   }
 });
 
-app.patch("/api/qms/:entity/:id", async (req, res) => {
+app.patch("/api/qms/:entity/:id", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const updated = await updateEntity(db, req.params.entity, req.params.id, req.body);
+    const updated = await updateEntity(db, req.params.entity, req.params.id, actor.scopeId, req.body);
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update record" });
   }
 });
 
-app.delete("/api/qms/:entity/:id", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
-
+app.delete("/api/qms/:entity/:id", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    await deleteEntity(db, req.params.entity, req.params.id, userId);
+    await deleteEntity(db, req.params.entity, req.params.id, actor.scopeId);
     res.status(204).end();
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to delete record" });
@@ -307,13 +291,12 @@ app.delete("/api/qms/:entity/:id", async (req, res) => {
 
 // --- Agent runs ---
 
-app.get("/api/agent-runs", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.get("/api/agent-runs", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
     const { agent_type, status, requires_human_review, limit } = req.query;
-    const runs = await listAgentRuns(db, userId, {
+    const runs = await listAgentRuns(db, actor.scopeId, {
       agentType: agent_type,
       status,
       requiresHumanReview:
@@ -328,12 +311,11 @@ app.get("/api/agent-runs", async (req, res) => {
   }
 });
 
-app.get("/api/agent-runs/:id", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.get("/api/agent-runs/:id", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const run = await getAgentRun(db, userId, req.params.id);
+    const run = await getAgentRun(db, actor.scopeId, req.params.id);
     if (!run) return res.status(404).json({ error: "Agent run not found" });
     res.json(run);
   } catch (error) {
@@ -341,24 +323,22 @@ app.get("/api/agent-runs/:id", async (req, res) => {
   }
 });
 
-app.post("/api/agent-runs", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.post("/api/agent-runs", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const run = await logAgentRun(db, { userId, ...req.body });
+    const run = await logAgentRun(db, { userId: actor.scopeId, organization_id: actor.organizationId, ...req.body });
     res.status(201).json(run);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to log agent run" });
   }
 });
 
-app.patch("/api/agent-runs/:id/resolve", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.patch("/api/agent-runs/:id/resolve", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const run = await resolveAgentRun(db, userId, req.params.id);
+    const run = await resolveAgentRun(db, actor.scopeId, req.params.id);
     if (!run) return res.status(404).json({ error: "Agent run not found" });
     res.json(run);
   } catch (error) {
@@ -368,12 +348,11 @@ app.patch("/api/agent-runs/:id/resolve", async (req, res) => {
 
 // --- Inspection agent trigger ---
 
-app.post("/api/agents/inspection/:inspectionId", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.post("/api/agents/inspection/:inspectionId", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
-    const result = await runInspectionAgent(db, userId, req.params.inspectionId);
+    const result = await runInspectionAgent(db, actor.scopeId, req.params.inspectionId);
     res.json(result);
   } catch (error) {
     console.error("inspection agent failed", error);
@@ -383,13 +362,12 @@ app.post("/api/agents/inspection/:inspectionId", async (req, res) => {
 
 // --- CAPA agent (separate pipeline; only CAPA-domain tools in capa-agent.js) ---
 
-app.post("/api/agents/capa/run", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.post("/api/agents/capa/run", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
     const options = req.body?.options && typeof req.body.options === "object" ? req.body.options : {};
-    const result = await runCapaAgent(db, userId, options);
+    const result = await runCapaAgent(db, actor.scopeId, options);
     res.json(result);
   } catch (error) {
     console.error("capa agent failed", error);
@@ -397,13 +375,12 @@ app.post("/api/agents/capa/run", async (req, res) => {
   }
 });
 
-app.post("/api/agents/supplier/run", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.post("/api/agents/supplier/run", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
     const options = req.body?.options && typeof req.body.options === "object" ? req.body.options : {};
-    const result = await runSupplierAgent(db, userId, options);
+    const result = await runSupplierAgent(db, actor.scopeId, options);
     res.json(result);
   } catch (error) {
     console.error("supplier agent failed", error);
@@ -411,13 +388,12 @@ app.post("/api/agents/supplier/run", async (req, res) => {
   }
 });
 
-app.post("/api/agents/compliance/run", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.post("/api/agents/compliance/run", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
     const options = req.body?.options && typeof req.body.options === "object" ? req.body.options : {};
-    const result = await runComplianceAgent(db, userId, options);
+    const result = await runComplianceAgent(db, actor.scopeId, options);
     res.json(result);
   } catch (error) {
     console.error("compliance agent failed", error);
@@ -425,13 +401,12 @@ app.post("/api/agents/compliance/run", async (req, res) => {
   }
 });
 
-app.get("/api/agents/compliance/items", async (req, res) => {
-  const userId = requireUserId(req, res);
-  if (!userId) return;
+app.get("/api/agents/compliance/items", requireAuth, async (req, res) => {
   try {
+    const actor = getRequestUser(req);
     const db = await getDb();
     const limit = req.query.limit ? Number(req.query.limit) : 60;
-    const items = await listComplianceAgentRiskItems(db, userId, { limit });
+    const items = await listComplianceAgentRiskItems(db, actor.scopeId, { limit });
     res.json(items);
   } catch (error) {
     console.error("compliance items list failed", error);

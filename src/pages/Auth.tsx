@@ -2,9 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Shield, LogIn, UserPlus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 const AuthPage = () => {
-  const { session, loading: authLoading, login, signup } = useAuth();
+  const { session, loading: authLoading, login, signup, error } = useAuth();
+  const [organization, setOrganization] = useState(() => localStorage.getItem("inspectra:last-org") || "");
 
   if (authLoading) {
     return (
@@ -18,6 +21,20 @@ const AuthPage = () => {
     return <Navigate to="/" replace />;
   }
 
+  const normalizedOrganization = organization.trim();
+
+  const handleLogin = async () => {
+    if (!normalizedOrganization) return;
+    localStorage.setItem("inspectra:last-org", normalizedOrganization);
+    await login(normalizedOrganization);
+  };
+
+  const handleSignup = async () => {
+    if (!normalizedOrganization) return;
+    localStorage.setItem("inspectra:last-org", normalizedOrganization);
+    await signup(normalizedOrganization);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
@@ -30,11 +47,28 @@ const AuthPage = () => {
         </div>
 
         <div className="glass-card p-6 space-y-4">
-          <Button type="button" onClick={() => void login()} className="w-full gap-2">
+          {error && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {error}
+            </div>
+          )}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-foreground">Organization</div>
+            <Input
+              value={organization}
+              onChange={(event) => setOrganization(event.target.value)}
+              placeholder="Your organization"
+              autoComplete="organization"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Sign in through your organization so Inspectra only shows your company’s documents and records.
+            </p>
+          </div>
+          <Button type="button" onClick={() => void handleLogin()} className="w-full gap-2" disabled={!normalizedOrganization}>
             <LogIn className="h-4 w-4" />
             Sign In
           </Button>
-          <Button type="button" variant="outline" onClick={() => void signup()} className="w-full gap-2">
+          <Button type="button" variant="outline" onClick={() => void handleSignup()} className="w-full gap-2" disabled={!normalizedOrganization}>
             <UserPlus className="h-4 w-4" />
             Create Account
           </Button>

@@ -88,7 +88,7 @@ function DocumentViewer({ doc, open, onClose }: { doc: any; open: boolean; onClo
     if (!doc?.id || !user?.id) return;
     setLoading(true);
     try {
-      const url = getDocumentFileUrl(doc.id, user.id);
+      const url = await getDocumentFileUrl(doc.id, user.id);
       setFileUrl(url);
     } catch {
       setFileUrl(null);
