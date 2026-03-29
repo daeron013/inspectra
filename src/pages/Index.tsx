@@ -2,11 +2,6 @@ import { useMemo } from "react";
 import { PageLayout } from "@/components/PageLayout";
 import { PriorityList, type DashboardPriorityItem } from "@/components/PriorityList";
 import { ComplianceChart } from "@/components/ComplianceChart";
-<<<<<<< HEAD
-import { priorityItems } from "@/data/mockData";
-
-const Dashboard = () => {
-=======
 import { useAuth } from "@/hooks/useAuth";
 import { useCAPAs, useComplianceAgentItems, useInspections, useLots, useNCRs, useSuppliers } from "@/hooks/useQMS";
 
@@ -22,14 +17,10 @@ function formatRelativeDate(dateString?: string) {
 
 function riskFromPriorityTier(priorityTier?: string): DashboardPriorityItem["risk"] {
   switch (priorityTier) {
-    case "P0":
-      return "critical";
-    case "P1":
-      return "high";
-    case "P2":
-      return "medium";
-    default:
-      return "low";
+    case "P0": return "critical";
+    case "P1": return "high";
+    case "P2": return "medium";
+    default: return "low";
   }
 }
 
@@ -144,7 +135,6 @@ const Dashboard = () => {
       .map(({ score: _score, ...item }) => item);
   }, [capas, complianceRiskItems, inspections, lots, ncrs, suppliers]);
 
->>>>>>> 9f646953d77e385adda599188accd0fc908f8667
   return (
     <PageLayout title="Quality Dashboard" subtitle="ISO 13485 Compliance Overview">
       <div className="space-y-6">
