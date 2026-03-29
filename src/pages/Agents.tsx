@@ -27,7 +27,7 @@ const agentConfig: Record<string, { icon: React.ComponentType<{ className?: stri
     icon: Clock,
     label: "Compliance Agent",
     description:
-      "Regulatory risk prioritizer — ranks which deadlines matter using cross-domain context (supplier dependency, device risk class, audit history). Separate compliance_agent_* data stores.",
+      "Monitors ISO 13485 and FDA compliance gaps across your QMS and flags the highest-risk items.",
     color: "text-agent-compliance",
   },
 };

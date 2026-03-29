@@ -144,7 +144,7 @@ const CompliancePage = () => {
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Compliance Agent</h2>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Regulatory risk prioritizer — ranks which deadlines matter using cross-domain context (supplier dependency, device risk class, audit history). Writes only to compliance agent data stores.
+                  Monitors ISO 13485 and FDA compliance gaps across your QMS and flags the highest-risk items.
                 </p>
               </div>
             </div>

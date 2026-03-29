@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:demo-qms": "node scripts/seed-demo-qms.mjs"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.16.0",

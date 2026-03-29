@@ -18,6 +18,40 @@ function getAudience() {
   return process.env.AUTH0_AUDIENCE || process.env.VITE_AUTH0_AUDIENCE || null;
 }
 
+/** SPA client id — ID tokens use this as `aud`. */
+function getAuth0ClientId() {
+  return process.env.AUTH0_CLIENT_ID || process.env.VITE_AUTH0_CLIENT_ID || null;
+}
+
+async function verifyBearerJwt(token) {
+  const issuer = getIssuer();
+  const audience = getAudience();
+  const clientId = getAuth0ClientId();
+  const jwks = getJwks();
+
+  const strategies = [];
+  if (audience) strategies.push({ issuer, audience });
+  if (clientId) strategies.push({ issuer, audience: clientId });
+  if (!audience) strategies.push({ issuer });
+
+  let lastError = new Error("JWT verification failed");
+  for (const opts of strategies) {
+    try {
+      return await jwtVerify(token, jwks, opts);
+    } catch (err) {
+      lastError = err instanceof Error ? err : lastError;
+    }
+  }
+  throw lastError;
+}
+
+function requireOrganization() {
+  const v = process.env.AUTH0_REQUIRE_ORGANIZATION;
+  if (v === "0" || v === "false" || v === "no") return false;
+  if (v === "1" || v === "true" || v === "yes") return true;
+  return process.env.NODE_ENV === "production";
+}
+
 function getJwks() {
   const issuer = getIssuer();
   if (!issuer) {
@@ -57,9 +91,10 @@ export async function requireAuth(req, res, next) {
     const issuer = getIssuer();
     const audience = getAudience();
 
-    if (!issuer || !audience) {
+    if (!issuer) {
       res.status(500).json({
-        error: "Auth0 API audience is not configured on the server",
+        error:
+          "Auth0 issuer is not configured. Set AUTH0_ISSUER_BASE_URL or AUTH0_DOMAIN (or VITE_AUTH0_DOMAIN) on the server.",
       });
       return;
     }
@@ -72,24 +107,31 @@ export async function requireAuth(req, res, next) {
 
     if (!isCompactJwt(token)) {
       res.status(401).json({
-        error: "Invalid bearer token format. Configure Auth0 API audience so the app requests a JWT access token.",
+        error:
+          "Invalid bearer token. Expected a JWT. Ensure the app sends an access token for your Auth0 API or an ID token — see VITE_AUTH0_AUDIENCE and AUTH0_CLIENT_ID on server.",
       });
       return;
     }
 
-    const { payload } = await jwtVerify(token, getJwks(), {
-      issuer,
-      audience,
-    });
+    if (!audience) {
+      console.warn(
+        "[auth] AUTH0_AUDIENCE / VITE_AUTH0_AUDIENCE not set — accepting API JWT, ID token (aud=client id), or issuer-only verification. Prefer setting an API audience in production.",
+      );
+    }
+
+    const { payload } = await verifyBearerJwt(token);
+
+    const sub = typeof payload.sub === "string" ? payload.sub : null;
+    const orgId = typeof payload.org_id === "string" ? payload.org_id : null;
 
     req.auth = {
       token,
       payload,
-      userId: typeof payload.sub === "string" ? payload.sub : null,
-      scopeId: typeof payload.org_id === "string" ? payload.org_id : (typeof payload.sub === "string" ? payload.sub : null),
+      userId: sub,
+      scopeId: orgId || sub,
       email: typeof payload.email === "string" ? payload.email : null,
       name: typeof payload.name === "string" ? payload.name : null,
-      organizationId: typeof payload.org_id === "string" ? payload.org_id : null,
+      organizationId: orgId,
       organizationName: typeof payload.org_name === "string" ? payload.org_name : null,
     };
 
@@ -98,9 +140,10 @@ export async function requireAuth(req, res, next) {
       return;
     }
 
-    if (!req.auth.organizationId) {
+    if (requireOrganization() && !req.auth.organizationId) {
       res.status(403).json({
-        error: "Organization login required. Sign in through an Auth0 Organization so records stay isolated to your company.",
+        error:
+          "Organization login required. Sign in through an Auth0 Organization, or for local dev set AUTH0_REQUIRE_ORGANIZATION=false (records then scope to your user id).",
       });
       return;
     }

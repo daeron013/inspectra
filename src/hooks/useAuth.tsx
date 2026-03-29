@@ -1,7 +1,22 @@
 import { createContext, ReactNode, useContext, useEffect } from "react";
 import { Auth0Provider, AppState, useAuth0 } from "@auth0/auth0-react";
+import type { GetTokenSilentlyVerboseResponse } from "@auth0/auth0-spa-js";
 import { useNavigate } from "react-router-dom";
 import { setApiAccessTokenProvider } from "@/lib/api";
+
+/** Auth0 often returns an opaque access token when no API audience is configured; ID token is always a JWT. */
+function isLikelyJwt(value: string | undefined): value is string {
+  return typeof value === "string" && value.split(".").length === 3;
+}
+
+function pickJwtForApi(response: string | GetTokenSilentlyVerboseResponse): string | null {
+  if (typeof response === "string") {
+    return isLikelyJwt(response) ? response : null;
+  }
+  if (isLikelyJwt(response.access_token)) return response.access_token;
+  if (isLikelyJwt(response.id_token)) return response.id_token;
+  return null;
+}
 
 type AppUser = {
   id: string;
@@ -52,12 +67,14 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
   useEffect(() => {
     setApiAccessTokenProvider(async () => {
       if (!isAuthenticated) return null;
-      return getAccessTokenSilently({
+      const response = await getAccessTokenSilently({
         authorizationParams: {
           ...(audience ? { audience } : {}),
         },
         cacheMode: "off",
+        detailedResponse: true,
       });
+      return pickJwtForApi(response);
     });
 
     return () => {
@@ -136,12 +153,14 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
     },
     getAccessToken: async () => {
       if (!isAuthenticated) return null;
-      return getAccessTokenSilently({
+      const response = await getAccessTokenSilently({
         authorizationParams: {
           ...(audience ? { audience } : {}),
         },
         cacheMode: "off",
+        detailedResponse: true,
       });
+      return pickJwtForApi(response);
     },
     error: error?.message || null,
   };

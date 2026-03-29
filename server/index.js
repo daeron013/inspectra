@@ -27,6 +27,7 @@ import {
   resolveAgentRun,
 } from "./agent-runs.js";
 import { runInspectionAgent } from "./agents/inspection-agent.js";
+import { clearChatHistory, ensureChatHistoryIndexes, getChatHistory, saveChatHistory } from "./chat-history.js";
 import { ensureCapaAgentIndexes, runCapaAgent, runCapaAgentOnNcr } from "./agents/capa-agent.js";
 import { ensureSupplierAgentIndexes, runSupplierAgent } from "./agents/supplier-agent.js";
 import {
@@ -77,6 +78,44 @@ app.post("/api/assistant", requireAuth, async (req, res) => {
     } else {
       res.end();
     }
+  }
+});
+
+app.get("/api/chat/history", requireAuth, async (req, res) => {
+  try {
+    const actor = getRequestUser(req);
+    const db = await getDb();
+    const messages = await getChatHistory(db, actor.scopeId);
+    res.json({ messages });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to load chat history" });
+  }
+});
+
+app.post("/api/chat/history", requireAuth, async (req, res) => {
+  try {
+    const actor = getRequestUser(req);
+    const { messages } = req.body;
+    if (!Array.isArray(messages)) {
+      res.status(400).json({ error: "messages array required" });
+      return;
+    }
+    const db = await getDb();
+    await saveChatHistory(db, actor.scopeId, messages);
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to save chat history" });
+  }
+});
+
+app.delete("/api/chat/history", requireAuth, async (req, res) => {
+  try {
+    const actor = getRequestUser(req);
+    const db = await getDb();
+    await clearChatHistory(db, actor.scopeId);
+    res.status(204).end();
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to clear chat history" });
   }
 });
 
@@ -481,6 +520,7 @@ async function start() {
   await ensureCapaAgentIndexes(db);
   await ensureSupplierAgentIndexes(db);
   await ensureComplianceAgentIndexes(db);
+  await ensureChatHistoryIndexes(db);
   await watchInspections(db);
   await watchNcrs(db);
   app.listen(port, () => {

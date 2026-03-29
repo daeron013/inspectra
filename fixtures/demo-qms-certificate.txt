@@ -1,0 +1,60 @@
+================================================================================
+CERTIFICATE OF CONFORMANCE — INCOMING MATERIAL (DEMO FOR INSPECTRA)
+================================================================================
+Use: In the app, open Documents → Upload this file → Process document.
+     (Processing uses Gemini to extract fields; GEMINI_API_KEY must be set.)
+================================================================================
+
+SUPPLIER INFORMATION
+--------------------
+Legal name: Demo Sterile Components LLC
+Supplier code: DEMO-SUP-001
+Contact email: quality@demosterile.example
+Contact phone: +1-555-0100
+Address: 100 Quality Way, Boston, MA 02110, USA
+Country: USA
+Supplier type: Contract manufacturer
+Certification: ISO 13485:2016 (Medical devices QMS)
+Certificate expiry date: 2027-06-30
+Supplier qualification status: Approved
+Supplier risk level: Medium
+Quality agreement signed: Yes
+Approved supplier since: 2024-01-15
+Audit score: 92
+On-time delivery (rolling 12 mo): 97 percent
+Recorded defect rate: 0.4 percent
+Last supplier audit date: 2025-08-01
+Next supplier audit due: 2026-08-01
+Last requalification date: 2025-03-15
+Next requalification due: 2026-03-15
+Requalification frequency: 365 days
+
+PART / COMPONENT
+------------------
+Part number: PN-DEMO-8842
+Part name: Implant-grade polymer housing
+Description: Demo component for catalog, traceability, and supplier linkage.
+FDA 510(k) clearance: K123456
+Device risk class (component): Class III
+Drawing number: DWG-8842-RevC
+Revision: C
+Material: Medical-grade PEEK
+Unit cost (reference): 12.50 USD
+
+LOT / BATCH TRACEABILITY
+------------------------
+Lot number: LOT-DEMO-2025-03
+Batch number: BTH-99122
+Quantity: 2400 units
+Date received: 2026-01-10
+Expiration / shelf-life end date: 2028-01-10
+Lot disposition status: Approved
+Incoming inspection status: Pending
+Certificate of Conformance reference: CoC-DEMO-2025-03
+Certificate of Analysis reference: CoA-DEMO-2025-03-A1
+Manufacture date: 2025-11-20
+
+We certify the above lot meets the referenced specification revision for
+part PN-DEMO-8842 as supplied by Demo Sterile Components LLC.
+
+Authorized release: Q.A. Demo — 2026-01-12
