@@ -173,7 +173,7 @@ export function generateRequalificationPlanPdf(data: ComplianceDocumentData) {
 }
 
 export function generateIncomingInspectionPacketPdf(data: ComplianceDocumentData) {
-  const { doc, section, textBlock, headerRow, row } = createDoc("Incoming Inspection Packet", "Receiving inspection evidence and pending review queue");
+  const { doc, section, textBlock, headerRow, row } = createDoc("Incoming Inspection Packet", "ISO 13485-aligned receiving inspection evidence");
 
   const pendingLots = data.lots.filter((lot) => lot.inspection_status !== "passed");
   const recentInspections = [...data.inspections]
@@ -182,6 +182,7 @@ export function generateIncomingInspectionPacketPdf(data: ComplianceDocumentData
 
   section("Pending Receiving Review");
   textBlock("Queue Size", `${pendingLots.length} lots currently require inspection completion, review, or disposition.`);
+  textBlock("ISO 13485 Focus", "Supports incoming product verification, acceptance activities, traceability, and nonconformance escalation for externally provided product.");
   headerRow(["Lot", "Part", "Supplier", "Qty", "Received", "Inspection"], [26, 44, 44, 16, 28, 32]);
   pendingLots.forEach((lot) =>
     row(
@@ -212,6 +213,10 @@ export function generateIncomingInspectionPacketPdf(data: ComplianceDocumentData
       [24, 30, 34, 28, 20, 24],
     ),
   );
+
+  section("Required Controlled Evidence");
+  textBlock("Inspection Packet Contents", "Pair this packet with source receiving records, lot and batch identifiers, certificates of conformance/analysis, applicable specifications, and linked NCR/CAPA records where failures occurred.");
+  textBlock("Inspection Note", "Use this packet as a controlled draft summary for inspection readiness. Final release and inclusion in an official inspection binder should follow your internal document-control process.");
 
   addFooter(doc, "Incoming Inspection Packet");
   doc.save("incoming-inspection-packet.pdf");

@@ -17,11 +17,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useSuppliers, useParts } from "@/hooks/useQMS";
+import { useSuppliers, useParts, useLots, useInspections, useNCRs, useCAPAs } from "@/hooks/useQMS";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { deleteDocument, getDocumentFileUrl, listDocuments } from "@/lib/api";
 import { generateDocumentAuditPdf } from "@/utils/documentAuditPdf";
+import {
+  generateApprovedSupplierListPdf,
+  generateIncomingInspectionPacketPdf,
+  generateManagementReviewPdf,
+  generateNcrCapaRegisterPdf,
+  generateRequalificationPlanPdf,
+} from "@/utils/complianceDocumentPdf";
+import { generateSupplierInspectionPacketPdf } from "@/utils/inspectionPacketPdf";
 import { useToast } from "@/hooks/use-toast";
 
 const typeLabels: Record<string, string> = {
@@ -240,7 +248,7 @@ function InspectorPackets({ suppliers, parts }: { suppliers: any[]; parts: any[]
           <div key={supplier.id} className="glass-card rounded-xl p-5 space-y-3 border border-border/50">
             <div>
               <h4 className="text-sm font-semibold text-foreground">{supplier.name}</h4>
-              <p className="text-[10px] text-muted-foreground">Regulator packet · {supplier.name}</p>
+              <p className="text-[10px] text-muted-foreground">ISO 13485 supplier packet · {supplier.name}</p>
             </div>
             <div>
               <div className="text-[9px] font-semibold uppercase tracking-widest text-primary mb-1">What They Make For Us</div>
@@ -256,7 +264,7 @@ function InspectorPackets({ suppliers, parts }: { suppliers: any[]; parts: any[]
               <p className="text-xs text-foreground">{supplier.address || "Not on file"}</p>
             </div>
             <div>
-              <div className="text-[9px] font-semibold uppercase tracking-widest text-primary mb-1">Certificates We Keep</div>
+              <div className="text-[9px] font-semibold uppercase tracking-widest text-primary mb-1">Controlled Certificates</div>
               <p className="text-xs text-foreground">
                 {supplier.certification_type || "None"}{supplier.certification_expiry ? ` · expires ${supplier.certification_expiry}` : ""}
                 {certDaysLeft !== null && certDaysLeft < 60 && (
@@ -267,20 +275,31 @@ function InspectorPackets({ suppliers, parts }: { suppliers: any[]; parts: any[]
               </p>
             </div>
             <div>
-              <div className="text-[9px] font-semibold uppercase tracking-widest text-primary mb-1">Last Check-In</div>
+              <div className="text-[9px] font-semibold uppercase tracking-widest text-primary mb-1">Audit and Requalification</div>
               <p className="text-xs text-foreground">
                 {daysSinceAudit !== null ? `${daysSinceAudit} days ago` : "No audit on file"}
                 {daysSinceAudit !== null && daysSinceAudit > 90 && (
                   <span className="text-status-warning text-[10px] ml-1">— follow-up overdue</span>
                 )}
               </p>
+              {supplier.requalification_due_date && (
+                <p className="text-xs text-muted-foreground mt-1">Requalification due: {supplier.requalification_due_date}</p>
+              )}
             </div>
             <div>
               <div className="text-[9px] font-semibold uppercase tracking-widest text-primary mb-1">Our Part Numbers From Them</div>
               <p className="text-xs text-foreground">{supplierParts.length > 0 ? supplierParts.map((p: any) => `${p.part_number} ${p.name}`).join(", ") : "None linked"}</p>
             </div>
-            <Button size="sm" className="w-full mt-2 h-8 text-xs gap-1" onClick={() => window.print()}>
-              <Printer className="h-3 w-3" /> Print or save PDF
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-widest text-primary mb-1">ISO 13485 Focus</div>
+              <p className="text-xs text-foreground">Supplier qualification, external provider control, requalification evidence, and traceable linked parts.</p>
+            </div>
+            <Button
+              size="sm"
+              className="w-full mt-2 h-8 text-xs gap-1"
+              onClick={() => generateSupplierInspectionPacketPdf({ supplier, parts: supplierParts })}
+            >
+              <Printer className="h-3 w-3" /> Generate packet PDF
             </Button>
           </div>
         );
@@ -294,6 +313,75 @@ function InspectorPackets({ suppliers, parts }: { suppliers: any[]; parts: any[]
   );
 }
 
+function IsoDocumentDrafts({
+  suppliers,
+  parts,
+  lots,
+  inspections,
+  ncrs,
+  capas,
+}: {
+  suppliers: any[];
+  parts: any[];
+  lots: any[];
+  inspections: any[];
+  ncrs: any[];
+  capas: any[];
+}) {
+  const qmsData = { suppliers, parts, lots, inspections, ncrs, capas };
+  const documentCards = [
+    {
+      title: "Approved Supplier List",
+      description: "Controlled draft supplier register with qualification status, certificates, risk level, and requalification timing.",
+      onClick: () => generateApprovedSupplierListPdf(qmsData),
+    },
+    {
+      title: "Supplier Requalification Plan",
+      description: "Risk-based requalification and audit schedule aligned to supplier oversight expectations.",
+      onClick: () => generateRequalificationPlanPdf(qmsData),
+    },
+    {
+      title: "Incoming Inspection Packet",
+      description: "Receiving-inspection evidence packet aligned to incoming inspection control and nonconformance handling.",
+      onClick: () => generateIncomingInspectionPacketPdf(qmsData),
+    },
+    {
+      title: "NCR and CAPA Register",
+      description: "Inspection-ready register of open quality events, dispositions, corrective actions, and due dates.",
+      onClick: () => generateNcrCapaRegisterPdf(qmsData),
+    },
+    {
+      title: "Management Review Summary",
+      description: "QMS summary draft for leadership review, including supplier oversight, inspection backlog, NCRs, and CAPAs.",
+      onClick: () => generateManagementReviewPdf(qmsData),
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="glass-card rounded-xl p-4">
+        <p className="text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">ISO 13485 draft set.</span>{" "}
+          Generate controlled draft PDFs from the live QMS records in this workspace. Use these as document-control starting points, then route them through your internal approval process before external use.
+        </p>
+      </div>
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {documentCards.map((card) => (
+          <div key={card.title} className="glass-card rounded-xl p-5 border border-border/50 space-y-3">
+            <div>
+              <div className="text-sm font-semibold text-foreground">{card.title}</div>
+              <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
+            </div>
+            <Button size="sm" className="w-full gap-2" onClick={card.onClick}>
+              <Printer className="h-3.5 w-3.5" /> Generate PDF
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────
 const DocumentsPage = () => {
   const [search, setSearch] = useState('');
@@ -302,6 +390,10 @@ const DocumentsPage = () => {
   const [deletingDoc, setDeletingDoc] = useState<any | null>(null);
   const { data: suppliers = [] } = useSuppliers();
   const { data: parts = [] } = useParts();
+  const { data: lots = [] } = useLots();
+  const { data: inspections = [] } = useInspections();
+  const { data: ncrs = [] } = useNCRs();
+  const { data: capas = [] } = useCAPAs();
   const { data: documents = [] } = useDocuments();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -331,7 +423,7 @@ const DocumentsPage = () => {
     const matchesSearch = d.title.toLowerCase().includes(search.toLowerCase()) ||
       d.document_type.toLowerCase().includes(search.toLowerCase()) ||
       (d.file_name || '').toLowerCase().includes(search.toLowerCase());
-    if (tab === 'all' || tab === 'packets') return matchesSearch;
+    if (tab === 'all' || tab === 'packets' || tab === 'iso-drafts') return matchesSearch;
     return matchesSearch && d.status === tab;
   });
 
@@ -367,6 +459,7 @@ const DocumentsPage = () => {
           <TabsTrigger value="draft">Uploaded</TabsTrigger>
           <TabsTrigger value="flagged">Flagged</TabsTrigger>
           <TabsTrigger value="packets" className="gap-1"><FileText className="h-3.5 w-3.5" /> Inspector Packets</TabsTrigger>
+          <TabsTrigger value="iso-drafts" className="gap-1"><FileText className="h-3.5 w-3.5" /> ISO Drafts</TabsTrigger>
         </TabsList>
 
         {/* Document list tabs */}
@@ -449,11 +542,22 @@ const DocumentsPage = () => {
           <div className="glass-card rounded-xl p-4">
             <p className="text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">What is this?</span>{" "}
-              Investigators often ask for a short summary of each outside company that supplies your product.
-              Print one packet per supplier and add it to your inspection binder.
+              Investigators often ask for structured supplier-control evidence.
+              Generate one supplier inspection packet per outside company and add it to your inspection binder.
             </p>
           </div>
           <InspectorPackets suppliers={suppliers} parts={parts} />
+        </TabsContent>
+
+        <TabsContent value="iso-drafts" className="mt-4 space-y-4">
+          <IsoDocumentDrafts
+            suppliers={suppliers}
+            parts={parts}
+            lots={lots}
+            inspections={inspections}
+            ncrs={ncrs}
+            capas={capas}
+          />
         </TabsContent>
       </Tabs>
 
