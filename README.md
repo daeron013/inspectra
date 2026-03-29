@@ -1,29 +1,8 @@
 # Inspectra
 
-Inspectra is a quality-management and inspection-readiness workspace for medical-device teams. It turns supplier, inspection, lot, NCR, and CAPA records into a single ISO 13485-oriented workflow with document storage, traceability, AI assistance, and exportable audit packets.
+How many safe products are put at risk because medical-device compliance is still managed through manual spreadsheets, scattered PDFs, and missed follow-ups? And how many hours are  teams losing every week just to assemble documents, trace lots, and prepare for audits by hand?
 
-## Societal Impact
-
-Medical-device quality failures are not just operational problems. They can lead to unsafe products, recalls, delayed treatment, lawsuits, and shutdowns that disproportionately hurt smaller companies without dedicated quality teams. Inspectra is designed to reduce that gap by making high-quality compliance operations more accessible.
-
-The goal is to help smaller and mid-sized medical-device teams:
-
-- catch supplier, inspection, and traceability issues earlier
-- maintain stronger documentation for FDA and ISO inspections
-- reduce manual spreadsheet-driven quality work
-- build safer, more consistent products for patients
-
-## What Makes Inspectra Different
-
-Inspectra is not just a chatbot layered on top of documents. It is a QMS-oriented workspace that connects source evidence, extracted structured data, operational records, and inspection-ready exports in one system.
-
-What makes it distinct:
-
-- source documents are turned into structured supplier, lot, inspection, NCR, and CAPA context
-- live priority actions are derived from actual QMS records, not static prompts
-- the system produces inspection packets and ISO-aligned draft documents, not only summaries
-- access is scoped by organization so each company sees its own quality records and documents
-- audit readiness is grounded in traceability, linked evidence, and controlled document workflows
+To solve this, we built Inspectra: quality-management and inspection-readiness workspace for medical-device teams. It turns supplier, inspection, lot, NCR, and CAPA records into a single ISO 13485-oriented workflow with document storage, traceability, AI assistance, and exportable audit packets.
 
 ## What It Does
 
@@ -77,13 +56,9 @@ High-level flow:
 - Gemini powers extraction and assistant responses using retrieved Mongo-backed context
 - Functional agents generate prioritized compliance and quality actions
 
-## Sponsors and How They Were Used
+## Sponsors
 
 ### Auth0
-
-Auth0 is used for authentication and org-scoped access control.
-
-In Inspectra, Auth0 is used to:
 
 - authenticate users with JWT-based backend protection
 - scope data access by organization so each company only sees its own records
@@ -96,10 +71,6 @@ Relevant code:
 
 ### Gemini
 
-Gemini powers the document understanding and assistant layer.
-
-In Inspectra, Gemini is used to:
-
 - extract structured supplier, inspection, lot, NCR, and CAPA information from uploaded documents
 - support the QMS-aware assistant experience
 - help convert unstructured PDFs into auditable operational records
@@ -110,10 +81,6 @@ Relevant code:
 - [server/assistant.js](/Users/anishka/Documents/GitHub/YHacks/inspectra/server/assistant.js)
 
 ### MongoDB
-
-MongoDB is the system of record for Inspectra.
-
-In Inspectra, MongoDB is used to:
 
 - store QMS entities such as suppliers, parts, lots, inspections, NCRs, CAPAs, and documents
 - store uploaded file bytes in GridFS
