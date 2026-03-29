@@ -1,7 +1,16 @@
-import { PriorityItem } from "@/data/mockData";
 import { AlertTriangle, AlertOctagon, Info, ChevronRight, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+
+export type DashboardPriorityItem = {
+  id: string;
+  title: string;
+  description: string;
+  risk: "critical" | "high" | "medium" | "low";
+  agent: string;
+  timestamp: string;
+  type: string;
+};
 
 const riskConfig: Record<string, { bg: string; text: string; icon: React.ComponentType<{ className?: string }> }> = {
   critical: { bg: 'bg-status-danger/10', text: 'text-status-danger', icon: AlertOctagon },
@@ -10,10 +19,10 @@ const riskConfig: Record<string, { bg: string; text: string; icon: React.Compone
   low: { bg: 'bg-status-success/10', text: 'text-status-success', icon: Info },
 };
 
-export function PriorityList({ items }: { items: PriorityItem[] }) {
+export function PriorityList({ items }: { items: DashboardPriorityItem[] }) {
   const navigate = useNavigate();
 
-  const askAI = (item: PriorityItem) => {
+  const askAI = (item: DashboardPriorityItem) => {
     const prompt = `Analyze this priority action and provide recommendations:\n\nTitle: ${item.title}\nDescription: ${item.description}\nRisk Level: ${item.risk}\nIdentified By: ${item.agent}\nType: ${item.type}\n\nProvide:\n1. Immediate actions to take\n2. Root cause possibilities\n3. ISO 13485 clause references\n4. Recommended timeline`;
     navigate(`/ai?prompt=${encodeURIComponent(prompt)}`);
   };
@@ -25,6 +34,11 @@ export function PriorityList({ items }: { items: PriorityItem[] }) {
         <p className="text-xs text-muted-foreground mt-0.5">Issues requiring immediate attention</p>
       </div>
       <div className="divide-y divide-border/30">
+        {items.length === 0 && (
+          <div className="px-5 py-8 text-sm text-muted-foreground">
+            No live priority actions right now. As records, inspections, or compliance risks appear, they will be ranked here automatically.
+          </div>
+        )}
         {items.map((item) => {
           const config = riskConfig[item.risk];
           const RiskIcon = config.icon;
