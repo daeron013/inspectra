@@ -42,6 +42,41 @@ What makes it distinct:
 - Auth: Auth0
 - AI: Gemini-backed assistant and document extraction
 
+## Tech Stack Diagram
+
+```mermaid
+flowchart LR
+    U[User] --> FE[React + Vite Frontend]
+    FE --> A0[Auth0]
+    FE --> API[Express API]
+
+    API --> MDB[(MongoDB Atlas)]
+    MDB --> GFS[GridFS File Storage]
+    MDB --> QMS[QMS Collections]
+    MDB --> CHUNKS[document_chunks / RAG context]
+
+    API --> GEM[Gemini]
+    GEM --> EXT[Structured Extraction]
+    GEM --> AST[AI Assistant]
+
+    API --> AGENTS[Functional Agents]
+    AGENTS --> SUP[Supplier Agent]
+    AGENTS --> INS[Inspection Agent]
+    AGENTS --> CAPA[CAPA Agent]
+    AGENTS --> COMP[Compliance Agent]
+
+    FE --> DOCS[Documents + Packets + ISO Drafts]
+    API --> DOCS
+```
+
+High-level flow:
+
+- Auth0 secures org-scoped login and backend JWT verification
+- React frontend calls the Express API for QMS data and document actions
+- MongoDB stores records, GridFS files, and RAG chunks
+- Gemini powers extraction and assistant responses using retrieved Mongo-backed context
+- Functional agents generate prioritized compliance and quality actions
+
 ## Sponsors and How They Were Used
 
 ### Auth0
