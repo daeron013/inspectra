@@ -2,17 +2,27 @@
 
 How many safe products are put at risk because medical-device compliance is still managed through manual spreadsheets, scattered PDFs, and missed follow-ups? And how many hours are  teams losing every week just to assemble documents, trace lots, and prepare for audits by hand?
 
-To solve this, we built Inspectra: quality-management and inspection-readiness workspace for medical-device teams. It turns supplier, inspection, lot, NCR, and CAPA records into a single ISO 13485-oriented workflow with document storage, traceability, AI assistance, and exportable audit packets.
+Inspectra is a quality-management and inspection-readiness workspace for medical-device teams. It brings together supplier records, inspection records, lot traceability, nonconformance reports (NCRs), and corrective and preventive actions (CAPAs) into one workflow aligned with ISO 13485, the international quality-management standard for medical devices. It also supports document storage, evidence traceability, AI-assisted analysis, and exportable audit packets for inspection prep.
 
 ## What It Does
 
-- Stores QMS records in MongoDB
-- Uploads and previews source documents
-- Extracts structured data from uploaded PDFs
-- Tracks suppliers, parts, lots, inspections, NCRs, and CAPAs
-- Ranks live priority actions from real QMS data
-- Generates inspection packets and ISO draft PDFs
-- Uses Auth0 for authentication and org-scoped access
+1. Upload supplier, inspection, lot, NCR, CAPA, and quality-system PDF documents and store the original files in MongoDB/GridFS 
+
+2. Convert unstructured documents into structured records such as supplier qualifications, inspection results, lot traceability, nonconformances, and CAPAs.
+
+3. Link extracted data back to the exact source documents so every field and action can be traced to its evidence.
+
+4. Organize the extracted information into a QMS workflow aligned with ISO 13485
+
+5. Detect compliance gaps by identifying missing records, overdue requalifications, failed inspections, open NCRs, overdue CAPAs, and weak traceability.
+
+6. Rank the highest-priority issues using our multi-agent system (Supplier Agent, Inspection Agent, CAPA Agent, and Compliance Agent).
+
+7. Support question answering with RAG by retrieving relevant MongoDB-stored document chunks and structured QMS context for the AI assistant.
+
+8. Generate inspection-ready outputs such as supplier inspection packets and ISO 13485 draft documents including the Approved Supplier List, Requalification Plan, Incoming Inspection Packet, NCR and CAPA Register, and Management Review Summary.
+
+
 
 ## Stack
 
