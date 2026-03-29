@@ -36,6 +36,27 @@ const AuthContext = createContext<AuthContextType>({
   error: null,
 });
 
+function parseOrganizationNameMap(rawValue: string | undefined) {
+  if (!rawValue) return {};
+
+  return Object.fromEntries(
+    rawValue
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => {
+        const separatorIndex = entry.indexOf(":");
+        if (separatorIndex === -1) return null;
+
+        const organizationId = entry.slice(0, separatorIndex).trim();
+        const organizationName = entry.slice(separatorIndex + 1).trim();
+        if (!organizationId || !organizationName) return null;
+        return [organizationId, organizationName];
+      })
+      .filter((entry): entry is [string, string] => Array.isArray(entry))
+  );
+}
+
 function Auth0Bridge({ children }: { children: ReactNode }) {
   const {
     isAuthenticated,
@@ -48,6 +69,16 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
   } = useAuth0();
   const auth0Origin = `${window.location.origin}/`;
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+  const organizationNameMap = parseOrganizationNameMap(import.meta.env.VITE_AUTH0_ORGANIZATION_NAMES);
+  const organizationId =
+    typeof (user as Record<string, unknown> | undefined)?.org_id === "string"
+      ? ((user as Record<string, string>).org_id as string)
+      : undefined;
+  const explicitOrganizationName =
+    typeof (user as Record<string, unknown> | undefined)?.org_name === "string"
+      ? ((user as Record<string, string>).org_name as string)
+      : undefined;
+  const mappedOrganizationName = organizationId ? organizationNameMap[organizationId] : undefined;
 
   useEffect(() => {
     setApiAccessTokenProvider(async () => {
@@ -68,21 +99,14 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    const explicitOrgName =
-      typeof (user as Record<string, unknown>).org_name === "string"
-        ? (user as Record<string, string>).org_name
-        : null;
-
-    if (explicitOrgName) {
-      localStorage.setItem("inspectra:last-org-name", explicitOrgName);
+    const resolvedOrganizationName = explicitOrganizationName || mappedOrganizationName;
+    if (resolvedOrganizationName) {
+      localStorage.setItem("inspectra:last-org-name", resolvedOrganizationName);
       return;
     }
 
-    const typedOrganization = localStorage.getItem("inspectra:last-org");
-    if (typedOrganization) {
-      localStorage.setItem("inspectra:last-org-name", typedOrganization);
-    }
-  }, [isAuthenticated, user]);
+    localStorage.removeItem("inspectra:last-org-name");
+  }, [explicitOrganizationName, isAuthenticated, mappedOrganizationName, user]);
 
   const fallbackOrganizationName =
     typeof window !== "undefined" ? localStorage.getItem("inspectra:last-org-name") || undefined : undefined;
@@ -93,11 +117,8 @@ function Auth0Bridge({ children }: { children: ReactNode }) {
         email: user.email,
         name: user.name,
         picture: user.picture,
-        organizationId: typeof (user as Record<string, unknown>).org_id === "string" ? (user as Record<string, string>).org_id : undefined,
-        organizationName:
-          (typeof (user as Record<string, unknown>).org_name === "string"
-            ? (user as Record<string, string>).org_name
-            : undefined) || fallbackOrganizationName,
+        organizationId,
+        organizationName: explicitOrganizationName || mappedOrganizationName || fallbackOrganizationName,
       }
     : null;
 

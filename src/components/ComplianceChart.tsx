@@ -35,10 +35,10 @@ export function ComplianceChart() {
             <YAxis tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(0, 0%, 100%)',
-                border: '1px solid hsl(220, 15%, 90%)',
-                borderRadius: '8px',
-                fontSize: '12px',
+                backgroundColor: "hsl(0, 0%, 100%)",
+                border: "1px solid hsl(220, 15%, 90%)",
+                borderRadius: "8px",
+                fontSize: "12px",
               }}
             />
             <Area type="monotone" dataKey="ncrs" stroke="hsl(200, 80%, 55%)" fill="url(#ncrs)" strokeWidth={2} name="NCRs" />

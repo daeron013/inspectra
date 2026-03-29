@@ -13,10 +13,10 @@ export type DashboardPriorityItem = {
 };
 
 const riskConfig: Record<string, { bg: string; text: string; icon: React.ComponentType<{ className?: string }> }> = {
-  critical: { bg: 'bg-status-danger/10', text: 'text-status-danger', icon: AlertOctagon },
-  high: { bg: 'bg-status-warning/10', text: 'text-status-warning', icon: AlertTriangle },
-  medium: { bg: 'bg-status-info/10', text: 'text-status-info', icon: Info },
-  low: { bg: 'bg-status-success/10', text: 'text-status-success', icon: Info },
+  critical: { bg: "bg-status-danger/10", text: "text-status-danger", icon: AlertOctagon },
+  high: { bg: "bg-status-warning/10", text: "text-status-warning", icon: AlertTriangle },
+  medium: { bg: "bg-status-info/10", text: "text-status-info", icon: Info },
+  low: { bg: "bg-status-success/10", text: "text-status-success", icon: Info },
 };
 
 export function PriorityList({ items }: { items: DashboardPriorityItem[] }) {

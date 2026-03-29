@@ -50,7 +50,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const organizationName = user?.organizationName;
+  const organizationLabel = user?.organizationName || user?.organizationId;
   const isActive = (path: string) => location.pathname === path;
 
   return (
@@ -65,12 +65,9 @@ export function AppSidebar() {
               <span className="text-sm font-bold tracking-tight text-white">
                 Inspectra
               </span>
-              <span className="text-[10px] font-medium uppercase tracking-widest text-sidebar-foreground/60">
-                Quality Management
-              </span>
-              {organizationName && (
+              {organizationLabel && (
                 <span className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-primary">
-                  {organizationName}
+                  {organizationLabel}
                 </span>
               )}
             </div>
@@ -133,9 +130,9 @@ export function AppSidebar() {
               <div className="text-[11px] font-medium text-sidebar-foreground">
                 {user?.name || user?.email || "Authenticated User"}
               </div>
-              {organizationName && (
+              {organizationLabel && (
                 <div className="text-[10px] text-sidebar-foreground/60">
-                  Workspace: {organizationName}
+                  Workspace: {organizationLabel}
                 </div>
               )}
               {user?.email && (
